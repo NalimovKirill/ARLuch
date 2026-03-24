@@ -120,18 +120,10 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     </style>
 
-    <!-- 
-      🔧 ЛОКАЛЬНЫЕ БИБЛИОТЕКИ (из папки js/)
-      Убедитесь, что файлы скачаны и лежат в папке js/
-    -->
-  <!-- Three.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.148.0/three.min.js"></script>
-
-<!-- GLTFLoader -->
-<script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/GLTFLoader.js"></script>
-
-<!-- MindAR Image Tracking -->
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+    <!-- ✅ БИБЛИОТЕКИ С CDN (без пробелов!) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.148.0/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
 </head>
 <body>
 
@@ -215,7 +207,6 @@
     function showScene(id) { document.querySelectorAll('.scene').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
     function selectModel(name) { selectedModel = name; alert(`Модель "${name}" выбрана.`); showScene('scene-menu'); }
 
-    // 🔍 Диагностика
     function debugMindAR() {
         const d = document.getElementById('loader-debug');
         let out = `MINDAR exists: ${typeof MINDAR !== 'undefined'}<br>`;
@@ -248,15 +239,14 @@
             loaderError.innerHTML = '⚠ Камера работает только на <b>HTTPS</b>'; return;
         }
 
-        // Проверка библиотек
         if (typeof THREE === 'undefined') {
             loaderText.innerText = 'ОШИБКА: THREE.JS';
-            loaderError.innerText = '⚠ Файл js/three.min.js не найден';
+            loaderError.innerText = '⚠ Библиотека Three.js не загрузилась';
             debugMindAR(); return;
         }
         if (typeof MINDAR === 'undefined') {
             loaderText.innerText = 'ОШИБКА: MINDAR';
-            loaderError.innerText = '⚠ Файл js/mindar-image-three.prod.js не найден';
+            loaderError.innerText = '⚠ Библиотека MindAR не загрузилась';
             debugMindAR(); return;
         }
 
@@ -287,7 +277,6 @@
         cameraStarted = true;
         stream.getTracks().forEach(t => t.stop());
 
-        // Выбор конструктора
         let MindARClass = null;
         if (MINDAR.IMAGE?.MindARImage) {
             MindARClass = MINDAR.IMAGE.MindARImage;
