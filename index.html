@@ -4,243 +4,102 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AR Engineering Suite</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    
+    <!-- Import Map - определяет откуда загружать библиотеки -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+            "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+        }
+    }
+    </script>
     
     <style>
-        :root {
-            --bg-color: #0b0c10; --card-bg: #15171e; --text-main: #e0e6ed;
-            --text-muted: #8892b0; --accent: #3b82f6; --accent-hover: #2563eb;
-            --border: #2d3748; --success: #10b981; --warning: #f59e0b; --error: #ef4444;
-        }
-        * { box-sizing: border-box; outline: none; }
-        body {
-            font-family: 'Inter', sans-serif; margin: 0; padding: 0;
-            background-color: #050505; height: 100vh; display: flex;
-            justify-content: center; align-items: center; color: var(--text-main); overflow: hidden;
-        }
-        #app-container {
-            width: 100%; max-width: 420px; height: 100%; max-height: 900px;
-            background: var(--bg-color); position: relative; border: 1px solid var(--border);
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;
-        }
-        .status-bar {
-            height: 40px; border-bottom: 1px solid var(--border); display: flex;
-            align-items: center; justify-content: space-between; padding: 0 20px;
-            font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
-            background: rgba(11,12,16,0.9); z-index: 20;
-        }
-        .scene {
-            flex: 1; display: flex; flex-direction: column; padding: 30px;
-            position: relative; width: 100%; height: 100%;
-        }
-        .hidden { display: none !important; }
-        h1 { font-size: 28px; font-weight: 600; margin: 0 0 8px 0; }
-        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 40px; }
-        .btn {
-            width: 100%; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border);
-            background: var(--card-bg); color: var(--text-main); font-size: 14px;
-            cursor: pointer; text-align: left; display: flex; justify-content: space-between;
-        }
-        .btn:hover { border-color: var(--accent); }
-        .btn-primary { background: var(--accent); border-color: var(--accent); color: white; justify-content: center; }
-        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #ar-loader {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100;
-            display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-main);
-        }
-        .loader-spinner {
-            width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent);
-            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .loader-debug { 
-            margin-top: 20px; font-size: 10px; font-family: monospace; text-align: left; 
-            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px;
-        }
-        .ar-ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none;
-        }
-        .ar-reticle {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 200px; height: 200px; border: 1px solid rgba(255,255,255,0.3);
-        }
+        /* ваши стили */
     </style>
-
-       <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.148.0/three.min.js"></script>
-       <script src="./js/mindar-image-three.prod.js"></script>
-    <head>
+</head>
     
 <body>
-
-<div id="app-container">
-    <div class="status-bar">
-        <span>AR SYSTEM</span>
-        <span id="status">OFFLINE</span>
+    <div id="app-container">
+        <!-- ваш HTML -->
     </div>
 
-    <div id="scene-menu" class="scene">
-        <div style="margin-top: auto; margin-bottom: 40px;">
-            <h1>AR Engineering</h1>
-            <p class="subtitle">Image Tracking System</p>
-        </div>
-        <button class="btn btn-primary" onclick="initAR()">
-            <span>🚀 ЗАПУСТИТЬ AR</span>
-        </button>
-    </div>
-
-    <div id="scene-ar" class="scene hidden">
-        <div id="ar-loader">
-            <div class="loader-spinner"></div>
-            <div id="loader-text">Загрузка...</div>
-            <div id="loader-debug" class="loader-debug"></div>
-            <button class="btn btn-primary" style="margin-top: 15px; width: auto;" onclick="checkLibraries()">🔄 ПРОВЕРИТЬ</button>
-            <button class="btn" style="margin-top: 10px; width: auto;" onclick="stopAR()">❌ ОТМЕНА</button>
-        </div>
-        <div id="ar-container"></div>
-        <div class="ar-ui-layer">
-            <div style="padding: 60px 20px 20px;">
-                <div style="background: rgba(0,0,0,0.6); padding: 6px 12px; border-radius: 4px; font-size: 10px; font-family: monospace; color: #f59e0b;">
-                    📡 СКАНИРОВАНИЕ...
-                </div>
-            </div>
-            <div class="ar-reticle"></div>
-            <div style="position: absolute; bottom: 30px; left: 20px; right: 20px;">
-                <button class="btn btn-primary" onclick="stopAR()">❌ ЗАКРЫТЬ</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-    let mindarThree = null, anchor = null;
-
-    function checkLibraries() {
-        const debug = document.getElementById('loader-debug');
-        let html = '';
+    <!-- Основной код как module -->
+    <script type="module">
+        // Импортируем библиотеки
+        import * as THREE from 'three';
+        import { MindARThree } from 'mindar-image-three';
         
-        html += `THREE: ${typeof THREE !== 'undefined' ? '✅ OK' : '❌ FAIL'}<br>`;
-        html += `THREE.GLTFLoader: ${typeof THREE !== 'undefined' && THREE.GLTFLoader ? '✅ OK' : '❌ FAIL'}<br>`;
-        html += `MINDAR: ${typeof MINDAR !== 'undefined' ? '✅ OK' : '❌ FAIL'}<br>`;
+        // Ваш код инициализации
+        let mindarThree = null;
+        let anchor = null;
         
-        if (typeof MINDAR !== 'undefined') {
-            html += `MINDAR.IMAGE: ${MINDAR.IMAGE ? '✅ OK' : '❌ FAIL'}<br>`;
-            if (MINDAR.IMAGE) {
-                html += `MindARImage: ${typeof MINDAR.IMAGE.MindARImage}<br>`;
+        async function initAR() {
+            mindarThree = new MindARThree({
+                container: document.getElementById("ar-container"),
+                imageUrl: "./targets.mind",
+                filterMinCF: 0.001,
+                filterBeta: 4,
+                maxTrack: 1
+            });
+            
+            const { renderer, scene, camera } = mindarThree;
+            
+            // Добавляем свет
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
+            scene.add(light);
+            
+            // Добавляем якорь
+            anchor = mindarThree.addAnchor(0);
+            
+            // Создаем 3D объект (куб вместо модели для теста)
+            const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
+            const cube = new THREE.Mesh(geometry, material);
+            cube.rotation.x = Math.PI / 2;
+            anchor.group.add(cube);
+            
+            // Запускаем AR
+            await mindarThree.start();
+            
+            // Обновляем статус
+            updateStatus('searching');
+            
+            // Обработчики событий
+            mindarThree.onTargetFound = () => {
+                anchor.group.visible = true;
+                updateStatus('tracking');
+            };
+            
+            mindarThree.onTargetLost = () => {
+                anchor.group.visible = false;
+                updateStatus('searching');
+            };
+            
+            // Рендер-луп
+            renderer.setAnimationLoop(() => {
+                renderer.render(scene, camera);
+            });
+        }
+        
+        function updateStatus(state) {
+            const statusText = document.getElementById('status-text');
+            if (state === 'tracking') {
+                statusText.textContent = 'AR ACTIVE';
+                statusText.style.color = '#10b981';
+            } else if (state === 'searching') {
+                statusText.textContent = 'SCANNING';
+                statusText.style.color = '#f59e0b';
+            } else {
+                statusText.textContent = 'OFFLINE';
+                statusText.style.color = '#8892b0';
             }
         }
         
-        // Проверка сети
-        html += `<br>Протокол: ${location.protocol}<br>`;
-        html += `Host: ${location.hostname}`;
-        
-        debug.innerHTML = html;
-    }
-
-    async function initAR() {
-        document.getElementById('scene-menu').classList.add('hidden');
-        document.getElementById('scene-ar').classList.remove('hidden');
-        document.getElementById('status').textContent = 'INIT';
-        
-        const loaderText = document.getElementById('loader-text');
-        
-        // Проверка библиотек
-        await new Promise(r => setTimeout(r, 100));
-        checkLibraries();
-        
-        if (typeof THREE === 'undefined') {
-            loaderText.textContent = '❌ ОШИБКА: Three.js не загрузился';
-            loaderText.style.color = '#ef4444';
-            return;
-        }
-        
-        if (typeof MINDAR === 'undefined') {
-            loaderText.textContent = '❌ ОШИБКА: MindAR не загрузился';
-            loaderText.style.color = '#ef4444';
-            return;
-        }
-        
-        loaderText.textContent = '📷 Запрос камеры...';
-        loaderText.style.color = '#8892b0';
-        
-        try {
-            await startAR();
-        } catch (e) {
-            console.error(e);
-            loaderText.textContent = '❌ ' + e.message;
-            loaderText.style.color = '#ef4444';
-        }
-    }
-
-    async function startAR() {
-        const container = document.getElementById('ar-container');
-        
-        // Проверка HTTPS
-        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-            throw new Error('Требуется HTTPS для доступа к камере');
-        }
-        
-        // Инициализация MindAR
-        mindarThree = new MINDAR.IMAGE.MindARImage({
-            container: container,
-            imageUrl: "./targets.mind",
-            filterMinCF: 0.001,
-            filterBeta: 4,
-            maxTrack: 1
-        });
-        
-        const { renderer, scene, camera } = mindarThree;
-        
-        // Добавляем свет
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
-        scene.add(light);
-        
-        // Добавляем якорь
-        anchor = mindarThree.addAnchor(0);
-        
-        // Создаем тестовый куб (вместо модели пока)
-        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.rotation.x = Math.PI / 2;
-        anchor.group.add(cube);
-        
-        // Запуск
-        await mindarThree.start();
-        
-        // Скрываем лоадер
-        document.getElementById('ar-loader').style.display = 'none';
-        document.getElementById('status').textContent = 'ACTIVE';
-        
-        // Обработчики
-        mindarThree.onTargetFound = () => {
-            anchor.group.visible = true;
-            document.getElementById('status').textContent = 'TRACKING';
-        };
-        
-        mindarThree.onTargetLost = () => {
-            anchor.group.visible = false;
-            document.getElementById('status').textContent = 'SEARCHING';
-        };
-        
-        // Рендер-луп
-        renderer.setAnimationLoop(() => {
-            renderer.render(scene, camera);
-        });
-    }
-
-    function stopAR() {
-        if (mindarThree) {
-            mindarThree.stop();
-            if (mindarThree.renderer) {
-                mindarThree.renderer.setAnimationLoop(null);
-            }
-        }
-        document.getElementById('ar-container').innerHTML = '';
-        document.getElementById('scene-ar').classList.add('hidden');
-        document.getElementById('scene-menu').classList.remove('hidden');
-        document.getElementById('status').textContent = 'OFFLINE';
-    }
-</script>
-
+        // Делаем функцию доступной глобально для кнопок
+        window.initAR = initAR;
+    </script>
 </body>
 </html>
