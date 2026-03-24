@@ -488,6 +488,30 @@
             btnManualCamera.disabled = false;
         }
     });
+
+    // Добавим логирование
+window.addEventListener('DOMContentLoaded', () => {
+    console.log('Protocol:', location.protocol);
+    console.log('Hostname:', location.hostname);
+    console.log('HTTPS OK:', location.protocol === 'https:' || location.hostname === 'localhost');
+    
+    // Проверка поддержки камеры
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Ваш браузер не поддерживает доступ к камере');
+    }
+});
+
+// Перехватим ошибки
+const originalInitAR = window.initAR;
+window.initAR = async function() {
+    try {
+        console.log('Starting AR...');
+        await originalInitAR();
+    } catch (error) {
+        console.error('AR Error:', error);
+        alert('Ошибка AR: ' + error.message);
+    }
+};
 </script>
 </body>
 </html>
