@@ -70,7 +70,7 @@
             flex: 1; display: flex; flex-direction: column; padding: 30px;
             position: relative; transition: opacity 0.25s ease;
             width: 100%; height: 100%;
-            min-height: 0; /* Важно для flex контейнеров */
+            min-height: 0;
         }
         .hidden { display: none !important; opacity: 0; pointer-events: none; }
 
@@ -158,7 +158,6 @@
             cursor: pointer; pointer-events: auto; font-size: 18px;
         }
 
-        /* Исправлено: уменьшены отступы */
         .ar-bottom-controls {
             padding: 15px 20px 20px 20px;
             pointer-events: auto;
@@ -192,10 +191,12 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     </style>
 
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-three.prod.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- 1. Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.148.0/three.min.js"></script>
+    <!-- 2. GLTFLoader -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.148.0/examples/js/loaders/GLTFLoader.js"></script>
+    <!-- 3. MindAR -->
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-three.prod.js"></script>
 </head>
 <body>
 
@@ -240,27 +241,19 @@
         <div class="model-list">
             <div class="model-item">
                 <div class="model-meta">
-                    <span class="model-name">Узел А-45 (Корпус)</span>
-                    <span class="model-tech">USDZ | 24.5 MB</span>
+                    <span class="model-name">Untitled Model</span>
+                    <span class="model-tech">GLB | Ready</span>
                 </div>
-                <button class="btn btn-action btn-primary" onclick="selectModel('Узел А-45')">ВЫБРАТЬ</button>
-            </div>
-            <div class="model-item">
-                <div class="model-meta">
-                    <span class="model-name">Деталь Б-12 (Крепеж)</span>
-                    <span class="model-tech">GLB | 8.2 MB</span>
-                </div>
-                <button class="btn btn-action btn-primary" onclick="selectModel('Деталь Б-12')">ВЫБРАТЬ</button>
+                <button class="btn btn-action btn-primary" onclick="selectModel('Untitled')">ВЫБРАТЬ</button>
             </div>
         </div>
     </div>
 
     <!-- СЦЕНА 3: AR -->
     <div id="scene-ar" class="scene hidden">
-        <!-- Экран загрузки -->
         <div id="ar-loader">
             <div class="loader-spinner"></div>
-            <div class="loader-text">ИНИЦИАЛИЗАЦИЯ КАМЕРЫ...</div>
+            <div class="loader-text">ЗАГРУЗКА БИБЛИОТЕК...</div>
             <div id="loader-error" class="loader-error"></div>
         </div>
 
@@ -296,7 +289,7 @@
     let mindarThree = null;
     let anchor = null;
     let arActive = false;
-    let selectedModel = 'box';
+    let selectedModel = 'Untitled';
 
     function showScene(sceneId) {
         document.querySelectorAll('.scene').forEach(s => s.classList.add('hidden'));
@@ -309,35 +302,53 @@
         showScene('scene-menu');
     }
 
+    function checkLibraries() {
+        const errors = [];
+        if (typeof THREE === 'undefined') errors.push('Three.js');
+        if (typeof MINDAR === 'undefined') errors.push('MindAR');
+        if (typeof THREE.GLTFLoader === 'undefined') errors.push('GLTFLoader');
+        return errors;
+    }
+
     async function initAR() {
         showScene('scene-ar');
         arActive = true;
         updateStatus('searching');
 
         const loader = document.getElementById('ar-loader');
+        const loaderText = loader.querySelector('.loader-text');
         const loaderError = document.getElementById('loader-error');
         const container = document.getElementById('ar-container');
         
-        // Показываем лоадер
         loader.style.display = 'flex';
+        loaderText.innerText = 'ПРОВЕРКА БИБЛИОТЕК...';
         container.innerHTML = '';
+        loaderError.innerText = '';
 
         // Проверка HTTPS
         if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
             loaderError.innerText = '⚠ ТРЕБУЕТСЯ HTTPS для доступа к камере';
-            console.error('AR требует HTTPS соединения');
             return;
         }
 
+        // Проверка библиотек
+        const missingLibs = checkLibraries();
+        if (missingLibs.length > 0) {
+            loaderError.innerText = '⚠ Не загружено: ' + missingLibs.join(', ');
+            console.error('Missing libraries:', missingLibs);
+            return;
+        }
+
+        loaderText.innerText = 'ИНИЦИАЛИЗАЦИЯ КАМЕРЫ...';
+
         try {
-            // Проверка поддержки камеры
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
             stream.getTracks().forEach(track => track.stop());
 
-            // 1. Создаем движок MindAR
+            // === НАСТРОЙКИ МАРКЕРА ===
             mindarThree = new MINDAR.Three.MindARThree({
                 container: container,
-                imageUrl: "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card.mind",
+                imageUrl: "./targets.mind", // <-- Ваше название файла маркера
                 filterMinCF: 0.001,
                 filterBeta: 4,
                 maxTrack: 1
@@ -345,24 +356,19 @@
 
             const { renderer, scene, camera } = mindarThree;
 
-            // Свет
             const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
             scene.add(light);
 
-            // 2. Создаем якорь
             anchor = mindarThree.addAnchor(0);
 
-            // 3. Добавляем модель
+            // === ЗАГРУЗКА МОДЕЛИ ===
             addModelToAnchor(anchor);
 
-            // 4. Запуск
             await mindarThree.start();
             
-            // Скрываем лоадер после успешного запуска
             loader.style.display = 'none';
             updateStatus('searching');
 
-            // 5. Слушатель событий
             mindarThree.targetFound = () => {
                 updateStatus('tracking');
                 anchor.group.visible = true;
@@ -377,44 +383,40 @@
                 document.getElementById('reset-btn').style.pointerEvents = 'none';
             };
 
-            // 6. Анимация
             renderer.setAnimationLoop(() => {
                 renderer.render(scene, camera);
             });
 
         } catch (error) {
             console.error('AR Error:', error);
-            loader.style.display = 'flex';
-            loaderError.innerText = '⚠ ' + (error.message || 'Ошибка камеры. Проверьте разрешения.');
+            loaderText.innerText = 'ОШИБКА ЗАПУСКА';
+            loaderError.innerText = '⚠ ' + (error.message || 'Ошибка камеры');
             
-            // Авто-закрытие через 3 секунды при ошибке
             setTimeout(() => {
                 stopAR();
-            }, 3000);
+            }, 4000);
         }
     }
 
     function addModelToAnchor(anchor) {
-        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const material = new THREE.MeshStandardMaterial({ 
-            color: 0x3b82f6,
-            roughness: 0.3,
-            metalness: 0.8
-        });
-        const cube = new THREE.Mesh(geometry, material);
-        cube.rotation.x = Math.PI / 2; 
-        anchor.group.add(cube);
-
-        /* 
-        // ЗАГРУЗКА СВОЕЙ МОДЕЛИ
         const loader = new THREE.GLTFLoader();
-        loader.load('./model.glb', (gltf) => {
+        
+        // === ПУТЬ К МОДЕЛИ ===
+        loader.load('./Untitled.glb', (gltf) => {
             const model = gltf.scene;
+            
+            // Настройка размера (подберите под вашу модель)
             model.scale.set(0.5, 0.5, 0.5);
+            
+            // Поворот чтобы стояла на поверхности
             model.rotation.x = Math.PI / 2;
+            
             anchor.group.add(model);
+            
+        }, undefined, (error) => {
+            console.error('Ошибка загрузки модели:', error);
+            document.getElementById('loader-error').innerText = '⚠ Модель Untitled.glb не найдена';
         });
-        */
     }
 
     function stopAR() {
@@ -425,6 +427,7 @@
         document.getElementById('ar-container').innerHTML = '';
         document.getElementById('ar-loader').style.display = 'flex';
         document.getElementById('loader-error').innerText = '';
+        document.querySelector('.loader-text').innerText = 'ЗАГРУЗКА БИБЛИОТЕК...';
         arActive = false;
         updateStatus('offline');
         showScene('scene-menu');
