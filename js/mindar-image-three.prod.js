@@ -1,4 +1,3 @@
- */
 function jd(s) {
     w(Array.isArray(s), () => "The argument passed to tf.addN() must be a list of tensors"), w(s.length >= 1, () => `Must pass at least one tensor to tf.addN(), but got ${s.length}`);
     const e = s.map((r, n) => y(r, `tensors${n}`, "addN")), t = e[0];
