@@ -2,10 +2,125 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>AR Engineering Suite</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
     
-    <!-- Import Map - определяет откуда загружать библиотеки -->
+    <style>
+        :root {
+            --bg-color: #0b0c10; --card-bg: #15171e; --text-main: #e0e6ed;
+            --text-muted: #8892b0; --accent: #3b82f6; --accent-hover: #2563eb;
+            --border: #2d3748; --success: #10b981; --warning: #f59e0b; --error: #ef4444;
+        }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', sans-serif; margin: 0; padding: 0;
+            background-color: #050505; height: 100vh; display: flex;
+            justify-content: center; align-items: center; color: var(--text-main); overflow: hidden;
+        }
+        body::before {
+            content: ""; position: absolute; width: 100%; height: 100%;
+            background-image: linear-gradient(rgba(59,130,246,0.05) 1px,transparent 1px),
+                              linear-gradient(90deg,rgba(59,130,246,0.05) 1px,transparent 1px);
+            background-size: 40px 40px; z-index: -1;
+        }
+        #app-container {
+            width: 100%; max-width: 420px; height: 100%; max-height: 900px;
+            background: var(--bg-color); position: relative; border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); display: flex; flex-direction: column; overflow: hidden;
+        }
+        .status-bar {
+            height: 40px; border-bottom: 1px solid var(--border); display: flex;
+            align-items: center; justify-content: space-between; padding: 0 20px;
+            font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;
+            background: rgba(11,12,16,0.9); z-index: 20; flex-shrink: 0;
+        }
+        .status-indicator { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background-color: var(--text-muted); }
+        .dot.active { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot.searching { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .scene {
+            flex: 1; display: flex; flex-direction: column; padding: 30px;
+            position: relative; transition: opacity 0.25s ease; width: 100%; height: 100%; min-height: 0;
+        }
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
+        h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin: 0 0 8px 0; }
+        h2 { font-size: 20px; font-weight: 600; margin: 0; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 40px; font-weight: 300; }
+        .btn {
+            width: 100%; padding: 16px 20px; margin-bottom: 12px; border: 1px solid var(--border);
+            background: var(--card-bg); color: var(--text-main); font-family: 'Inter', sans-serif;
+            font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; text-align: left;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn:hover { border-color: var(--accent); background: rgba(59,130,246,0.05); }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: white; justify-content: center; text-align: center; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-icon { opacity: 0.7; font-size: 16px; }
+        .list-header { display: flex; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .back-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; margin-right: 15px; padding: 5px; }
+        .back-btn:hover { color: var(--text-main); }
+        .model-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .model-item { background: var(--card-bg); border: 1px solid var(--border); padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .model-item:hover { border-color: var(--accent); }
+        .model-meta { display: flex; flex-direction: column; gap: 4px; }
+        .model-name { font-size: 14px; font-weight: 500; }
+        .model-tech { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+        .btn-action { padding: 8px 16px; font-size: 12px; width: auto; margin: 0; justify-content: center; text-align: center; }
+        #scene-ar { padding: 0; overflow: hidden; background: #000; position: relative; }
+        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; contain: layout style size; }
+        #ar-loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: var(--text-main); padding: 20px; text-align: center;
+        }
+        .loader-spinner {
+            width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+        .loader-error { color: var(--error); margin-top: 10px; font-size: 11px; text-align: center; padding: 0 20px; line-height: 1.4; }
+        .loader-debug { color: var(--text-muted); margin-top: 20px; font-size: 9px; text-align: left; padding: 0 20px; font-family: monospace; line-height: 1.5; max-height: 150px; overflow: auto; background: rgba(255,255,255,0.05); border-radius: 4px; }
+        .btn-camera { margin-top: 15px; padding: 10px 20px; background: var(--accent); border: none; border-radius: 4px; color: white; font-size: 12px; cursor: pointer; }
+        .btn-camera:hover { background: var(--accent-hover); }
+        .ar-ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+        }
+        .ar-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 55px 20px 10px 20px; pointer-events: auto; }
+        .ar-badge {
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border: 1px solid var(--border);
+            padding: 6px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+            font-size: 10px; color: var(--warning); text-transform: uppercase; display: flex; align-items: center; gap: 6px;
+        }
+        .ar-badge.tracking { color: var(--success); border-color: var(--success); }
+        .ar-close-btn {
+            background: rgba(0,0,0,0.5); border: 1px solid var(--border); color: white;
+            width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; pointer-events: auto; font-size: 18px;
+        }
+        .ar-bottom-controls { padding: 15px 20px 20px 20px; pointer-events: auto; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
+        .ar-reticle {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 200px; height: 200px; border: 1px solid rgba(255,255,255,0.15);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .ar-reticle::before, .ar-reticle::after { content: ''; position: absolute; background: rgba(59,130,246,0.3); }
+        .ar-reticle::before { width: 100%; height: 1px; }
+        .ar-reticle::after { height: 100%; width: 1px; }
+        .ar-reticle-corner { position: absolute; width: 20px; height: 20px; border-color: var(--accent); border-style: solid; }
+        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+        .bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    </style>
+
+    <!-- Import Map для ES Modules -->
     <script type="importmap">
     {
         "imports": {
@@ -15,91 +130,300 @@
         }
     }
     </script>
-    
-    <style>
-        /* ваши стили */
-    </style>
 </head>
-    
 <body>
-    <div id="app-container">
-        <!-- ваш HTML -->
+
+<div id="app-container">
+    <div class="status-bar">
+        <span>SYSTEM_READY</span>
+        <div class="status-indicator">
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">OFFLINE</span>
+        </div>
     </div>
 
-    <!-- Основной код как module -->
-    <script type="module">
-        // Импортируем библиотеки
-        import * as THREE from 'three';
-        import { MindARThree } from 'mindar-image-three';
+    <!-- СЦЕНА 1: МЕНЮ -->
+    <div id="scene-menu" class="scene">
+        <div style="margin-top: auto; margin-bottom: 40px;">
+            <h1>AR Engineering</h1>
+            <p class="subtitle">Система визуализации v2.4</p>
+        </div>
+        <button class="btn btn-primary" id="init-ar-btn">
+            <span>ИНИЦИАЛИЗИРОВАТЬ AR</span><span class="btn-icon">⟡</span>
+        </button>
+        <button class="btn" id="show-list-btn">
+            <span>БИБЛИОТЕКА МОДЕЛЕЙ</span><span class="btn-icon">›</span>
+        </button>
+        <div style="margin-top: auto; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+            BUILD: 2023.10.25 <br> ID: 8X-299-ALPHA
+        </div>
+    </div>
+
+    <!-- СЦЕНА 2: СПИСОК -->
+    <div id="scene-list" class="scene hidden">
+        <div class="list-header">
+            <button class="back-btn" id="back-to-menu">←</button>
+            <h2>РЕЕСТР ОБЪЕКТОВ</h2>
+        </div>
+        <div class="model-list">
+            <div class="model-item">
+                <div class="model-meta">
+                    <span class="model-name">Untitled Model</span>
+                    <span class="model-tech">GLB | Ready</span>
+                </div>
+                <button class="btn btn-action btn-primary" id="select-model">ВЫБРАТЬ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- СЦЕНА 3: AR -->
+    <div id="scene-ar" class="scene hidden">
+        <div id="ar-loader">
+            <div class="loader-spinner"></div>
+            <div class="loader-text" id="loader-text">ПРОВЕРКА СИСТЕМЫ...</div>
+            <div id="loader-error" class="loader-error"></div>
+            <div id="loader-debug" class="loader-debug"></div>
+            <button id="btn-manual-camera" class="btn-camera hidden">📷 РАЗРЕШИТЬ КАМЕРУ</button>
+        </div>
+        <div id="ar-container"></div>
+        <div class="ar-ui-layer">
+            <div class="ar-top-bar">
+                <div id="ar-badge" class="ar-badge">
+                    <div id="badge-dot" class="dot"></div>
+                    <span id="badge-text">СКАНИРОВАНИЕ...</span>
+                </div>
+                <button class="ar-close-btn" id="stop-ar">✕</button>
+            </div>
+            <div class="ar-reticle">
+                <div class="ar-reticle-corner tl"></div><div class="ar-reticle-corner tr"></div>
+                <div class="ar-reticle-corner bl"></div><div class="ar-reticle-corner br"></div>
+            </div>
+            <div class="ar-bottom-controls">
+                <button id="reset-btn" class="btn btn-primary" style="opacity: 0.5; pointer-events: none;">
+                    <span>СБРОСИТЬ ПОЗИЦИЮ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { MindARThree } from 'mindar-image-three';
+
+    let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
+
+    // Элементы DOM
+    const sceneMenu = document.getElementById('scene-menu');
+    const sceneList = document.getElementById('scene-list');
+    const sceneAr = document.getElementById('scene-ar');
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    const arBadge = document.getElementById('ar-badge');
+    const badgeDot = document.getElementById('badge-dot');
+    const badgeText = document.getElementById('badge-text');
+    const loaderText = document.getElementById('loader-text');
+    const loaderError = document.getElementById('loader-error');
+    const loaderDebug = document.getElementById('loader-debug');
+    const btnManualCamera = document.getElementById('btn-manual-camera');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function showScene(id) { 
+        [sceneMenu, sceneList, sceneAr].forEach(s => s.classList.add('hidden')); 
+        document.getElementById(id).classList.remove('hidden'); 
+    }
+
+    function selectModel(name) { 
+        selectedModel = name; 
+        alert(`Модель "${name}" выбрана.`); 
+        showScene('scene-menu'); 
+    }
+
+    // 🔍 Диагностика
+    function debugMindAR() {
+        let out = `THREE: ${typeof THREE !== 'undefined'}<br>`;
+        out += `MindARThree: ${typeof MindARThree !== 'undefined'}<br>`;
+        out += `GLTFLoader: ${typeof GLTFLoader !== 'undefined'}<br>`;
+        out += `HTTPS: ${location.protocol === 'https:' ? 'OK' : 'FAIL'}<br>`;
+        const c = document.getElementById('ar-container').getBoundingClientRect();
+        out += `Container: ${Math.round(c.width)}x${Math.round(c.height)}`;
+        loaderDebug.innerHTML = out;
+    }
+
+    async function initAR() {
+        showScene('scene-ar'); 
+        arActive = true; 
+        updateStatus('searching');
         
-        // Ваш код инициализации
-        let mindarThree = null;
-        let anchor = null;
+        loaderText.innerText = 'ДИАГНОСТИКА...';
+        loaderError.innerText = ''; 
+        loaderDebug.innerHTML = ''; 
+        btnManualCamera.classList.add('hidden');
+        document.getElementById('ar-container').innerHTML = '';
+
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            loaderError.innerHTML = '⚠ Камера работает только на <b>HTTPS</b>'; 
+            return;
+        }
+
+        // Проверка библиотек
+        if (typeof THREE === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: THREE.JS';
+            loaderError.innerText = '⚠ Three.js не загрузился';
+            debugMindAR(); 
+            return;
+        }
+        if (typeof MindARThree === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: MINDAR';
+            loaderError.innerText = '⚠ MindAR не загрузился';
+            debugMindAR(); 
+            return;
+        }
+
+        debugMindAR();
+        await new Promise(r => setTimeout(r, 150));
+        const rect = document.getElementById('ar-container').getBoundingClientRect();
+        if (rect.width < 10 || rect.height < 10) {
+            loaderText.innerText = 'ОШИБКА РАЗМЕРОВ';
+            loaderError.innerText = '⚠ Контейнер пуст. Обновите страницу.'; 
+            return;
+        }
+
+        loaderText.innerText = 'ЗАПРОС КАМЕРЫ...';
+        try { 
+            await startCamera(); 
+        } catch (e) {
+            console.error('Camera init error:', e);
+            loaderText.innerText = 'НУЖНО РАЗРЕШЕНИЕ';
+            loaderError.innerText = '⚠ ' + (e.message || 'Камера заблокирована');
+            btnManualCamera.classList.remove('hidden');
+        }
+    }
+
+    async function startCamera() {
+        const container = document.getElementById('ar-container');
         
-        async function initAR() {
-            mindarThree = new MindARThree({
-                container: document.getElementById("ar-container"),
-                imageUrl: "./targets.mind",
-                filterMinCF: 0.001,
-                filterBeta: 4,
-                maxTrack: 1
-            });
-            
-            const { renderer, scene, camera } = mindarThree;
-            
-            // Добавляем свет
-            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
-            scene.add(light);
-            
-            // Добавляем якорь
-            anchor = mindarThree.addAnchor(0);
-            
-            // Создаем 3D объект (куб вместо модели для теста)
-            const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const material = new THREE.MeshStandardMaterial({ color: 0x3b82f6 });
-            const cube = new THREE.Mesh(geometry, material);
-            cube.rotation.x = Math.PI / 2;
-            anchor.group.add(cube);
-            
-            // Запускаем AR
-            await mindarThree.start();
-            
-            // Обновляем статус
-            updateStatus('searching');
-            
-            // Обработчики событий
-            mindarThree.onTargetFound = () => {
-                anchor.group.visible = true;
-                updateStatus('tracking');
-            };
-            
-            mindarThree.onTargetLost = () => {
-                anchor.group.visible = false;
-                updateStatus('searching');
-            };
-            
-            // Рендер-луп
-            renderer.setAnimationLoop(() => {
-                renderer.render(scene, camera);
-            });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} } 
+        });
+        cameraStarted = true;
+        stream.getTracks().forEach(t => t.stop());
+
+        mindarThree = new MindARThree({
+            container: container,
+            imageUrl: "./targets.mind",
+            filterMinCF: 0.001, 
+            filterBeta: 4, 
+            maxTrack: 1
+        });
+
+        const { renderer, scene, camera } = mindarThree;
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
+        anchor = mindarThree.addAnchor(0);
+        addModelToAnchor(anchor);
+
+        await mindarThree.start();
+        document.getElementById('ar-loader').style.display = 'none';
+        updateStatus('searching');
+
+        mindarThree.onTargetFound = () => onTargetFound();
+        mindarThree.onTargetLost = () => onTargetLost();
+
+        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    }
+
+    function onTargetFound() {
+        updateStatus('tracking');
+        if (anchor?.group) anchor.group.visible = true;
+        resetBtn.style.opacity = '1';
+        resetBtn.style.pointerEvents = 'auto';
+    }
+
+    function onTargetLost() {
+        updateStatus('searching');
+        if (anchor?.group) anchor.group.visible = false;
+        resetBtn.style.opacity = '0.5';
+        resetBtn.style.pointerEvents = 'none';
+    }
+
+    function addModelToAnchor(anchor) {
+        const loader = new GLTFLoader();
+        loader.load('./Untitled.glb', (gltf) => {
+            const model = gltf.scene;
+            model.scale.set(0.5, 0.5, 0.5);
+            model.rotation.x = Math.PI / 2;
+            anchor.group.add(model);
+        }, undefined, (e) => console.error('Model error:', e));
+    }
+
+    function stopAR() {
+        if (mindarThree) { 
+            mindarThree.stop(); 
+            if (mindarThree.renderer) mindarThree.renderer.setAnimationLoop(null); 
+        }
+        document.getElementById('ar-container').innerHTML = '';
+        cameraStarted = false; 
+        arActive = false; 
+        updateStatus('offline'); 
+        showScene('scene-menu');
+    }
+
+    resetBtn.addEventListener('click', () => { 
+        if (anchor?.group) { 
+            anchor.group.visible = false; 
+            setTimeout(() => anchor.group.visible = true, 100); 
+        } 
+    });
+
+    function updateStatus(state) {
+        statusDot.className = 'dot';
+        if (state === 'tracking') { 
+            statusDot.classList.add('active'); 
+            statusText.innerText = 'AR ACTIVE'; 
+            statusText.style.color = 'var(--success)'; 
+        } else if (state === 'searching') { 
+            statusDot.classList.add('searching'); 
+            statusText.innerText = 'SCANNING'; 
+            statusText.style.color = 'var(--warning)'; 
+        } else { 
+            statusText.innerText = 'OFFLINE'; 
+            statusText.style.color = 'var(--text-muted)'; 
         }
         
-        function updateStatus(state) {
-            const statusText = document.getElementById('status-text');
-            if (state === 'tracking') {
-                statusText.textContent = 'AR ACTIVE';
-                statusText.style.color = '#10b981';
-            } else if (state === 'searching') {
-                statusText.textContent = 'SCANNING';
-                statusText.style.color = '#f59e0b';
-            } else {
-                statusText.textContent = 'OFFLINE';
-                statusText.style.color = '#8892b0';
-            }
+        arBadge.className = 'ar-badge'; 
+        badgeDot.className = 'dot';
+        if (state === 'tracking') { 
+            arBadge.classList.add('tracking'); 
+            badgeDot.classList.add('active'); 
+            badgeText.innerText = 'ОБЪЕКТ НАЙДЕН'; 
+        } else if (state === 'searching') { 
+            badgeDot.classList.add('searching'); 
+            badgeText.innerText = 'СКАНИРОВАНИЕ...'; 
         }
-        
-        // Делаем функцию доступной глобально для кнопок
-        window.initAR = initAR;
-    </script>
+    }
+
+    // Обработчики кнопок
+    document.getElementById('init-ar-btn').addEventListener('click', initAR);
+    document.getElementById('show-list-btn').addEventListener('click', () => showScene('scene-list'));
+    document.getElementById('back-to-menu').addEventListener('click', () => showScene('scene-menu'));
+    document.getElementById('select-model').addEventListener('click', () => selectModel('Untitled'));
+    document.getElementById('stop-ar').addEventListener('click', stopAR);
+    btnManualCamera.addEventListener('click', async () => {
+        btnManualCamera.classList.add('hidden'); 
+        btnManualCamera.disabled = true;
+        loaderText.innerText = 'ЗАПРОС РАЗРЕШЕНИЯ...'; 
+        loaderError.innerText = '';
+        try { 
+            await startCamera(); 
+        } catch (e) {
+            console.error('Manual error:', e);
+            loaderText.innerText = 'ОШИБКА';
+            loaderError.innerText = '⚠ ' + (e.message || 'Не удалось запустить камеру');
+            btnManualCamera.classList.remove('hidden'); 
+            btnManualCamera.disabled = false;
+        }
+    });
+</script>
 </body>
 </html>
