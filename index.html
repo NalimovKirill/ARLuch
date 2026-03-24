@@ -1,687 +1,466 @@
 <!DOCTYPE html>
 <html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, user-scalable=no"
-    />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
     <title>AR Engineering Suite</title>
-    <!-- Шрифты -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap"
-      rel="stylesheet"
-    />
-
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    
     <style>
-      :root {
-        --bg-color: #0b0c10;
-        --card-bg: #15171e;
-        --text-main: #e0e6ed;
-        --text-muted: #8892b0;
-        --accent: #3b82f6;
-        --accent-hover: #2563eb;
-        --border: #2d3748;
-        --success: #10b981;
-        --warning: #f59e0b;
-      }
-
-      * {
-        box-sizing: border-box;
-        outline: none;
-        -webkit-tap-highlight-color: transparent;
-      }
-
-      body {
-        font-family: "Inter", sans-serif;
-        margin: 0;
-        padding: 0;
-        background-color: #050505;
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        color: var(--text-main);
-        overflow: hidden;
-      }
-
-      /* Фон с сеткой */
-      body::before {
-        content: "";
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background-image: linear-gradient(
-            rgba(59, 130, 246, 0.05) 1px,
-            transparent 1px
-          ),
-          linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
-        background-size: 40px 40px;
-        z-index: -1;
-      }
-
-      #app-container {
-        width: 100%;
-        max-width: 420px;
-        height: 100%;
-        max-height: 900px;
-        background: var(--bg-color);
-        position: relative;
-        border: 1px solid var(--border);
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-
-      /* Статус бар */
-      .status-bar {
-        height: 40px;
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 20px;
-        font-size: 11px;
-        color: var(--text-muted);
-        font-family: "JetBrains Mono", monospace;
-        background: rgba(11, 12, 16, 0.9);
-        z-index: 20;
-      }
-
-      .status-indicator {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background-color: var(--text-muted);
-      }
-      .dot.active {
-        background-color: var(--success);
-        box-shadow: 0 0 8px var(--success);
-      }
-      .dot.searching {
-        background-color: var(--warning);
-        box-shadow: 0 0 8px var(--warning);
-        animation: pulse 1s infinite;
-      }
-
-      @keyframes pulse {
-        0% {
-          opacity: 1;
+        :root {
+            --bg-color: #0b0c10;
+            --card-bg: #15171e;
+            --text-main: #e0e6ed;
+            --text-muted: #8892b0;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --border: #2d3748;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
         }
-        50% {
-          opacity: 0.5;
+
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0; padding: 0;
+            background-color: #050505;
+            height: 100vh;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--text-main);
+            overflow: hidden;
         }
-        100% {
-          opacity: 1;
+
+        body::before {
+            content: ""; position: absolute; width: 100%; height: 100%;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: -1;
         }
-      }
 
-      /* Сцены */
-      .scene {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 30px;
-        position: relative;
-        transition: opacity 0.25s ease;
-        width: 100%;
-        height: 100%;
-      }
-      .hidden {
-        display: none !important;
-        opacity: 0;
-        pointer-events: none;
-      }
+        #app-container {
+            width: 100%; max-width: 420px; height: 100%; max-height: 900px;
+            background: var(--bg-color); position: relative;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: flex; flex-direction: column;
+            overflow: hidden;
+        }
 
-      h1 {
-        font-size: 28px;
-        font-weight: 600;
-        letter-spacing: -0.5px;
-        margin: 0 0 8px 0;
-      }
-      h2 {
-        font-size: 20px;
-        font-weight: 600;
-        margin: 0;
-      }
-      .subtitle {
-        color: var(--text-muted);
-        font-size: 14px;
-        margin-bottom: 40px;
-        font-weight: 300;
-      }
+        .status-bar {
+            height: 40px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; font-size: 11px; color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+            background: rgba(11, 12, 16, 0.9); z-index: 20;
+            flex-shrink: 0;
+        }
 
-      /* Кнопки */
-      .btn {
-        width: 100%;
-        padding: 16px 20px;
-        margin-bottom: 12px;
-        border: 1px solid var(--border);
-        background: var(--card-bg);
-        color: var(--text-main);
-        font-family: "Inter", sans-serif;
-        font-size: 14px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: left;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .btn:hover {
-        border-color: var(--accent);
-        background: rgba(59, 130, 246, 0.05);
-      }
-      .btn-primary {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: white;
-        justify-content: center;
-        text-align: center;
-      }
-      .btn-primary:hover {
-        background: var(--accent-hover);
-      }
-      .btn-icon {
-        opacity: 0.7;
-        font-size: 16px;
-      }
+        .status-indicator { display: flex; align-items: center; gap: 6px; }
+        .dot { width: 6px; height: 6px; border-radius: 50%; background-color: var(--text-muted); }
+        .dot.active { background-color: var(--success); box-shadow: 0 0 8px var(--success); }
+        .dot.searching { background-color: var(--warning); box-shadow: 0 0 8px var(--warning); animation: pulse 1s infinite; }
 
-      /* Список */
-      .list-header {
-        display: flex;
-        align-items: center;
-        margin-bottom: 25px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid var(--border);
-      }
-      .back-btn {
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        font-size: 20px;
-        cursor: pointer;
-        margin-right: 15px;
-        padding: 5px;
-      }
-      .back-btn:hover {
-        color: var(--text-main);
-      }
-      .model-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        overflow-y: auto;
-      }
-      .model-item {
-        background: var(--card-bg);
-        border: 1px solid var(--border);
-        padding: 16px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-      .model-item:hover {
-        border-color: var(--accent);
-      }
-      .model-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-      }
-      .model-name {
-        font-size: 14px;
-        font-weight: 500;
-      }
-      .model-tech {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
-        color: var(--text-muted);
-      }
-      .btn-action {
-        padding: 8px 16px;
-        font-size: 12px;
-        width: auto;
-        margin: 0;
-        justify-content: center;
-        text-align: center;
-      }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-      /* AR Сцена */
-      #scene-ar {
-        padding: 0;
-        overflow: hidden;
-        background: #000;
-      }
+        .scene {
+            flex: 1; display: flex; flex-direction: column; padding: 30px;
+            position: relative; transition: opacity 0.25s ease;
+            width: 100%; height: 100%;
+            min-height: 0; /* Важно для flex контейнеров */
+        }
+        .hidden { display: none !important; opacity: 0; pointer-events: none; }
 
-      /* Контейнер для AR (на весь экран) */
-      #ar-container {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1;
-      }
+        h1 { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin: 0 0 8px 0; }
+        h2 { font-size: 20px; font-weight: 600; margin: 0; }
+        .subtitle { color: var(--text-muted); font-size: 14px; margin-bottom: 40px; font-weight: 300; }
 
-      /* UI поверх AR */
-      .ar-ui-layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 10;
-        pointer-events: none; /* Чтобы клики проходили к камере */
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
-      }
+        .btn {
+            width: 100%; padding: 16px 20px; margin-bottom: 12px;
+            border: 1px solid var(--border); background: var(--card-bg);
+            color: var(--text-main); font-family: 'Inter', sans-serif;
+            font-size: 14px; font-weight: 500; cursor: pointer;
+            transition: all 0.2s; text-align: left;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .btn:hover { border-color: var(--accent); background: rgba(59, 130, 246, 0.05); }
+        .btn-primary { background: var(--accent); border-color: var(--accent); color: white; justify-content: center; text-align: center; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-icon { opacity: 0.7; font-size: 16px; }
 
-      .ar-top-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 50px 20px 10px 20px; /* Отступ сверху для статус бара */
-        pointer-events: auto;
-      }
+        .list-header { display: flex; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+        .back-btn { background: none; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; margin-right: 15px; padding: 5px; }
+        .back-btn:hover { color: var(--text-main); }
+        .model-list { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+        .model-item { background: var(--card-bg); border: 1px solid var(--border); padding: 16px; display: flex; justify-content: space-between; align-items: center; }
+        .model-item:hover { border-color: var(--accent); }
+        .model-meta { display: flex; flex-direction: column; gap: 4px; }
+        .model-name { font-size: 14px; font-weight: 500; }
+        .model-tech { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
+        .btn-action { padding: 8px 16px; font-size: 12px; width: auto; margin: 0; justify-content: center; text-align: center; }
 
-      .ar-badge {
-        background: rgba(0, 0, 0, 0.6);
-        backdrop-filter: blur(4px);
-        border: 1px solid var(--border);
-        padding: 6px 12px;
-        border-radius: 4px;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 10px;
-        color: var(--warning);
-        text-transform: uppercase;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-      .ar-badge.tracking {
-        color: var(--success);
-        border-color: var(--success);
-      }
+        /* AR Сцена */
+        #scene-ar { padding: 0; overflow: hidden; background: #000; position: relative; }
+        
+        #ar-container {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
 
-      .ar-close-btn {
-        background: rgba(0, 0, 0, 0.5);
-        border: 1px solid var(--border);
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        pointer-events: auto;
-        font-size: 18px;
-      }
+        /* Экран загрузки AR */
+        #ar-loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: var(--text-main);
+        }
+        .loader-spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-muted); }
+        .loader-error { color: var(--error); margin-top: 10px; font-size: 11px; text-align: center; padding: 0 20px; }
 
-      .ar-bottom-controls {
-        padding: 20px 30px 40px 30px;
-        pointer-events: auto;
-      }
+        .ar-ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
 
-      /* Прицел */
-      .ar-reticle {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 200px;
-        height: 200px;
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
-      .ar-reticle::before,
-      .ar-reticle::after {
-        content: "";
-        position: absolute;
-        background: rgba(59, 130, 246, 0.3);
-      }
-      .ar-reticle::before {
-        width: 100%;
-        height: 1px;
-      }
-      .ar-reticle::after {
-        height: 100%;
-        width: 1px;
-      }
+        .ar-top-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 55px 20px 10px 20px;
+            pointer-events: auto;
+        }
 
-      .ar-reticle-corner {
-        position: absolute;
-        width: 20px;
-        height: 20px;
-        border-color: var(--accent);
-        border-style: solid;
-      }
-      .tl {
-        top: 0;
-        left: 0;
-        border-width: 2px 0 0 2px;
-      }
-      .tr {
-        top: 0;
-        right: 0;
-        border-width: 2px 2px 0 0;
-      }
-      .bl {
-        bottom: 0;
-        left: 0;
-        border-width: 0 0 2px 2px;
-      }
-      .br {
-        bottom: 0;
-        right: 0;
-        border-width: 0 2px 2px 0;
-      }
+        .ar-badge {
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            border: 1px solid var(--border); padding: 6px 12px;
+            border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+            font-size: 10px; color: var(--warning); text-transform: uppercase;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .ar-badge.tracking { color: var(--success); border-color: var(--success); }
 
-      /* Скроллбар */
-      ::-webkit-scrollbar {
-        width: 4px;
-      }
-      ::-webkit-scrollbar-track {
-        background: var(--bg-color);
-      }
-      ::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 2px;
-      }
+        .ar-close-btn {
+            background: rgba(0, 0, 0, 0.5); border: 1px solid var(--border);
+            color: white; width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; pointer-events: auto; font-size: 18px;
+        }
+
+        /* Исправлено: уменьшены отступы */
+        .ar-bottom-controls {
+            padding: 15px 20px 20px 20px;
+            pointer-events: auto;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        }
+
+        .ar-reticle {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px; height: 200px;
+            border: 1px solid rgba(255,255,255,0.15);
+            display: flex; justify-content: center; align-items: center;
+        }
+        .ar-reticle::before, .ar-reticle::after {
+            content: ''; position: absolute; background: rgba(59, 130, 246, 0.3);
+        }
+        .ar-reticle::before { width: 100%; height: 1px; }
+        .ar-reticle::after { height: 100%; width: 1px; }
+        
+        .ar-reticle-corner {
+            position: absolute; width: 20px; height: 20px;
+            border-color: var(--accent); border-style: solid;
+        }
+        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .tr { top: 0; right: 0; border-width: 2px 2px 0 0; }
+        .bl { bottom: 0; left: 0; border-width: 0 0 2px 2px; }
+        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     </style>
 
-    <!-- Подключаем Three.js и MindAR -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-three.prod.js"></script>
-  </head>
-  <body>
-    <div id="app-container">
-      <!-- Статус бар -->
-      <div class="status-bar">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+<div id="app-container">
+
+    <div class="status-bar">
         <span>SYSTEM_READY</span>
         <div class="status-indicator">
-          <div id="status-dot" class="dot"></div>
-          <span id="status-text">OFFLINE</span>
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">OFFLINE</span>
         </div>
-      </div>
+    </div>
 
-      <!-- СЦЕНА 1: МЕНЮ -->
-      <div id="scene-menu" class="scene">
-        <div style="margin-top: auto; margin-bottom: 40px">
-          <h1>AR Engineering</h1>
-          <p class="subtitle">Система визуализации v2.4</p>
+    <!-- СЦЕНА 1: МЕНЮ -->
+    <div id="scene-menu" class="scene">
+        <div style="margin-top: auto; margin-bottom: 40px;">
+            <h1>AR Engineering</h1>
+            <p class="subtitle">Система визуализации v2.4</p>
         </div>
 
         <button class="btn btn-primary" onclick="initAR()">
-          <span>ИНИЦИАЛИЗИРОВАТЬ AR</span>
-          <span class="btn-icon">⟡</span>
+            <span>ИНИЦИАЛИЗИРОВАТЬ AR</span>
+            <span class="btn-icon">⟡</span>
         </button>
-
+        
         <button class="btn" onclick="showScene('scene-list')">
-          <span>БИБЛИОТЕКА МОДЕЛЕЙ</span>
-          <span class="btn-icon">›</span>
+            <span>БИБЛИОТЕКА МОДЕЛЕЙ</span>
+            <span class="btn-icon">›</span>
         </button>
 
-        <div
-          style="
-            margin-top: auto;
-            font-size: 10px;
-            color: var(--text-muted);
-            font-family: 'JetBrains Mono', monospace;
-          "
-        >
-          BUILD: 2023.10.25 <br />
-          ID: 8X-299-ALPHA
+        <div style="margin-top: auto; font-size: 10px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace;">
+            BUILD: 2023.10.25 <br> ID: 8X-299-ALPHA
         </div>
-      </div>
-
-      <!-- СЦЕНА 2: СПИСОК -->
-      <div id="scene-list" class="scene hidden">
-        <div class="list-header">
-          <button class="back-btn" onclick="showScene('scene-menu')">←</button>
-          <h2>РЕЕСТР ОБЪЕКТОВ</h2>
-        </div>
-        <div class="model-list">
-          <div class="model-item">
-            <div class="model-meta">
-              <span class="model-name">Узел А-45 (Корпус)</span>
-              <span class="model-tech">USDZ | 24.5 MB</span>
-            </div>
-            <button
-              class="btn btn-action btn-primary"
-              onclick="selectModel('Узел А-45')"
-            >
-              ВЫБРАТЬ
-            </button>
-          </div>
-          <div class="model-item">
-            <div class="model-meta">
-              <span class="model-name">Деталь Б-12 (Крепеж)</span>
-              <span class="model-tech">GLB | 8.2 MB</span>
-            </div>
-            <button
-              class="btn btn-action btn-primary"
-              onclick="selectModel('Деталь Б-12')"
-            >
-              ВЫБРАТЬ
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- СЦЕНА 3: AR -->
-      <div id="scene-ar" class="scene hidden">
-        <!-- Контейнер для 3D -->
-        <div id="ar-container"></div>
-
-        <!-- Интерфейс -->
-        <div class="ar-ui-layer">
-          <div class="ar-top-bar">
-            <div id="ar-badge" class="ar-badge">
-              <div id="badge-dot" class="dot"></div>
-              <span id="badge-text">СКАНИРОВАНИЕ...</span>
-            </div>
-            <button class="ar-close-btn" onclick="stopAR()">✕</button>
-          </div>
-
-          <div class="ar-reticle">
-            <div class="ar-reticle-corner tl"></div>
-            <div class="ar-reticle-corner tr"></div>
-            <div class="ar-reticle-corner bl"></div>
-            <div class="ar-reticle-corner br"></div>
-          </div>
-
-          <div class="ar-bottom-controls">
-            <button
-              id="reset-btn"
-              class="btn btn-primary"
-              style="opacity: 0.5; pointer-events: none"
-              onclick="resetModel()"
-            >
-              <span>СБРОСИТЬ ПОЗИЦИЮ</span>
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
-    <script>
-      // Глобальные переменные AR
-      let mindarThree = null;
-      let anchor = null;
-      let arActive = false;
-      let selectedModel = "box"; // По умолчанию куб
+    <!-- СЦЕНА 2: СПИСОК -->
+    <div id="scene-list" class="scene hidden">
+        <div class="list-header">
+            <button class="back-btn" onclick="showScene('scene-menu')">←</button>
+            <h2>РЕЕСТР ОБЪЕКТОВ</h2>
+        </div>
+        <div class="model-list">
+            <div class="model-item">
+                <div class="model-meta">
+                    <span class="model-name">Узел А-45 (Корпус)</span>
+                    <span class="model-tech">USDZ | 24.5 MB</span>
+                </div>
+                <button class="btn btn-action btn-primary" onclick="selectModel('Узел А-45')">ВЫБРАТЬ</button>
+            </div>
+            <div class="model-item">
+                <div class="model-meta">
+                    <span class="model-name">Деталь Б-12 (Крепеж)</span>
+                    <span class="model-tech">GLB | 8.2 MB</span>
+                </div>
+                <button class="btn btn-action btn-primary" onclick="selectModel('Деталь Б-12')">ВЫБРАТЬ</button>
+            </div>
+        </div>
+    </div>
 
-      // Переключение сцен
-      function showScene(sceneId) {
-        document
-          .querySelectorAll(".scene")
-          .forEach((s) => s.classList.add("hidden"));
-        document.getElementById(sceneId).classList.remove("hidden");
-      }
+    <!-- СЦЕНА 3: AR -->
+    <div id="scene-ar" class="scene hidden">
+        <!-- Экран загрузки -->
+        <div id="ar-loader">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">ИНИЦИАЛИЗАЦИЯ КАМЕРЫ...</div>
+            <div id="loader-error" class="loader-error"></div>
+        </div>
 
-      function selectModel(name) {
+        <div id="ar-container"></div>
+
+        <div class="ar-ui-layer">
+            <div class="ar-top-bar">
+                <div id="ar-badge" class="ar-badge">
+                    <div id="badge-dot" class="dot"></div>
+                    <span id="badge-text">СКАНИРОВАНИЕ...</span>
+                </div>
+                <button class="ar-close-btn" onclick="stopAR()">✕</button>
+            </div>
+
+            <div class="ar-reticle">
+                <div class="ar-reticle-corner tl"></div>
+                <div class="ar-reticle-corner tr"></div>
+                <div class="ar-reticle-corner bl"></div>
+                <div class="ar-reticle-corner br"></div>
+            </div>
+
+            <div class="ar-bottom-controls">
+                <button id="reset-btn" class="btn btn-primary" style="opacity: 0.5; pointer-events: none;" onclick="resetModel()">
+                    <span>СБРОСИТЬ ПОЗИЦИЮ</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let mindarThree = null;
+    let anchor = null;
+    let arActive = false;
+    let selectedModel = 'box';
+
+    function showScene(sceneId) {
+        document.querySelectorAll('.scene').forEach(s => s.classList.add('hidden'));
+        document.getElementById(sceneId).classList.remove('hidden');
+    }
+
+    function selectModel(name) {
         selectedModel = name;
         alert(`Модель "${name}" выбрана. Запустите AR.`);
-        showScene("scene-menu");
-      }
+        showScene('scene-menu');
+    }
 
-      // --- ИНИЦИАЛИЗАЦИЯ AR ---
-      async function initAR() {
-        showScene("scene-ar");
+    async function initAR() {
+        showScene('scene-ar');
         arActive = true;
-        updateStatus("searching");
+        updateStatus('searching');
 
-        const container = document.getElementById("ar-container");
-        container.innerHTML = ""; // Очистка
+        const loader = document.getElementById('ar-loader');
+        const loaderError = document.getElementById('loader-error');
+        const container = document.getElementById('ar-container');
+        
+        // Показываем лоадер
+        loader.style.display = 'flex';
+        container.innerHTML = '';
 
-        // 1. Создаем движок MindAR
-        mindarThree = new MINDAR.Three.MindARThree({
-          container: container,
-          // ССЫЛКА НА ФАЙЛ МАРКЕРА (нужно скомпилировать свою картинку)
-          imageUrl: "./targets.mind",
-          filterMinCF: 0.001,
-          filterBeta: 4,
-          maxTrack: 1,
-        });
+        // Проверка HTTPS
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+            loaderError.innerText = '⚠ ТРЕБУЕТСЯ HTTPS для доступа к камере';
+            console.error('AR требует HTTPS соединения');
+            return;
+        }
 
-        // 2. Настраиваем сцену Three.js
-        const { renderer, scene, camera } = mindarThree;
+        try {
+            // Проверка поддержки камеры
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            stream.getTracks().forEach(track => track.stop());
 
-        // Свет
-        const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
-        scene.add(light);
+            // 1. Создаем движок MindAR
+            mindarThree = new MINDAR.Three.MindARThree({
+                container: container,
+                imageUrl: "https://cdn.jsdelivr.net/gh/hiukim/mind-ar-js@1.2.2/examples/image-tracking/assets/card.mind",
+                filterMinCF: 0.001,
+                filterBeta: 4,
+                maxTrack: 1
+            });
 
-        // 3. Создаем якорь (привязку к картинке)
-        // index: 0 - это первый маркер в вашем файле .mind
-        anchor = mindarThree.addAnchor(0);
+            const { renderer, scene, camera } = mindarThree;
 
-        // 4. Добавляем модель
-        addModelToAnchor(anchor);
+            // Свет
+            const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
+            scene.add(light);
 
-        // 5. Запуск
-        await mindarThree.start();
-        updateStatus("searching");
+            // 2. Создаем якорь
+            anchor = mindarThree.addAnchor(0);
 
-        // 6. Слушатель событий трекинга
-        mindarThree.targetFound = () => {
-          updateStatus("tracking");
-          anchor.group.visible = true;
-          document.getElementById("reset-btn").style.opacity = "1";
-          document.getElementById("reset-btn").style.pointerEvents = "auto";
-        };
+            // 3. Добавляем модель
+            addModelToAnchor(anchor);
 
-        mindarThree.targetLost = () => {
-          updateStatus("searching");
-          anchor.group.visible = false;
-          document.getElementById("reset-btn").style.opacity = "0.5";
-          document.getElementById("reset-btn").style.pointerEvents = "none";
-        };
+            // 4. Запуск
+            await mindarThree.start();
+            
+            // Скрываем лоадер после успешного запуска
+            loader.style.display = 'none';
+            updateStatus('searching');
 
-        // 7. Анимация
-        renderer.setAnimationLoop(() => {
-          renderer.render(scene, camera);
-        });
-      }
+            // 5. Слушатель событий
+            mindarThree.targetFound = () => {
+                updateStatus('tracking');
+                anchor.group.visible = true;
+                document.getElementById('reset-btn').style.opacity = '1';
+                document.getElementById('reset-btn').style.pointerEvents = 'auto';
+            };
 
-      // Функция добавления модели (замените на загрузку .glb)
-      function addModelToAnchor(anchor) {
-        const loader = new THREE.GLTFLoader();
+            mindarThree.targetLost = () => {
+                updateStatus('searching');
+                anchor.group.visible = false;
+                document.getElementById('reset-btn').style.opacity = '0.5';
+                document.getElementById('reset-btn').style.pointerEvents = 'none';
+            };
 
-        loader.load("./Untitled.glb", (gltf) => {
-          const model = gltf.scene;
+            // 6. Анимация
+            renderer.setAnimationLoop(() => {
+                renderer.render(scene, camera);
+            });
 
-          // Настройка размера и поворота
-          model.scale.set(0.5, 0.5, 0.5);
-          model.rotation.x = Math.PI / 2;
+        } catch (error) {
+            console.error('AR Error:', error);
+            loader.style.display = 'flex';
+            loaderError.innerText = '⚠ ' + (error.message || 'Ошибка камеры. Проверьте разрешения.');
+            
+            // Авто-закрытие через 3 секунды при ошибке
+            setTimeout(() => {
+                stopAR();
+            }, 3000);
+        }
+    }
 
-          anchor.group.add(model);
+    function addModelToAnchor(anchor) {
+        const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const material = new THREE.MeshStandardMaterial({ 
+            color: 0x3b82f6,
+            roughness: 0.3,
+            metalness: 0.8
         });
         const cube = new THREE.Mesh(geometry, material);
-
-        // Поворачиваем, чтобы стояла на поверхности
-        cube.rotation.x = Math.PI / 2;
-
+        cube.rotation.x = Math.PI / 2; 
         anchor.group.add(cube);
 
-        /*
-        // ЗАГРУЗКА СВОЕЙ МОДЕЛИ (раскомментировать и указать путь)
+        /* 
+        // ЗАГРУЗКА СВОЕЙ МОДЕЛИ
         const loader = new THREE.GLTFLoader();
-        loader.load('path/to/your/model.glb', (gltf) => {
+        loader.load('./model.glb', (gltf) => {
             const model = gltf.scene;
-            model.scale.set(0.5, 0.5, 0.5); // Настройте размер
+            model.scale.set(0.5, 0.5, 0.5);
+            model.rotation.x = Math.PI / 2;
             anchor.group.add(model);
         });
         */
-      }
+    }
 
-      function stopAR() {
+    function stopAR() {
         if (mindarThree) {
-          mindarThree.stop();
-          mindarThree.renderer.setAnimationLoop(null);
-          // mindarThree.renderer.dispose(); // Очистка памяти
+            mindarThree.stop();
+            mindarThree.renderer.setAnimationLoop(null);
         }
-        document.getElementById("ar-container").innerHTML = "";
+        document.getElementById('ar-container').innerHTML = '';
+        document.getElementById('ar-loader').style.display = 'flex';
+        document.getElementById('loader-error').innerText = '';
         arActive = false;
-        updateStatus("offline");
-        showScene("scene-menu");
-      }
+        updateStatus('offline');
+        showScene('scene-menu');
+    }
 
-      function resetModel() {
-        if (anchor) {
-          anchor.group.visible = false;
-          setTimeout(() => {
-            anchor.group.visible = true;
-          }, 100);
+    function resetModel() {
+        if(anchor) {
+            anchor.group.visible = false;
+            setTimeout(() => { anchor.group.visible = true; }, 100);
         }
-      }
+    }
 
-      // Обновление UI статусов
-      function updateStatus(state) {
-        const dot = document.getElementById("status-dot");
-        const text = document.getElementById("status-text");
-        const badge = document.getElementById("ar-badge");
-        const badgeDot = document.getElementById("badge-dot");
-        const badgeText = document.getElementById("badge-text");
+    function updateStatus(state) {
+        const dot = document.getElementById('status-dot');
+        const text = document.getElementById('status-text');
+        const badge = document.getElementById('ar-badge');
+        const badgeDot = document.getElementById('badge-dot');
+        const badgeText = document.getElementById('badge-text');
 
-        // Глобальный статус
-        dot.className = "dot";
-        if (state === "tracking") {
-          dot.classList.add("active");
-          text.innerText = "AR ACTIVE";
-          text.style.color = "var(--success)";
-        } else if (state === "searching") {
-          dot.classList.add("searching");
-          text.innerText = "SCANNING";
-          text.style.color = "var(--warning)";
-        } else {
-          text.innerText = "OFFLINE";
-          text.style.color = "var(--text-muted)";
+        dot.className = 'dot';
+        if (state === 'tracking') { dot.classList.add('active'); text.innerText = 'AR ACTIVE'; text.style.color = 'var(--success)'; }
+        else if (state === 'searching') { dot.classList.add('searching'); text.innerText = 'SCANNING'; text.style.color = 'var(--warning)'; }
+        else { text.innerText = 'OFFLINE'; text.style.color = 'var(--text-muted)'; }
+
+        badge.className = 'ar-badge';
+        badgeDot.className = 'dot';
+        if (state === 'tracking') { 
+            badge.classList.add('tracking'); 
+            badgeDot.classList.add('active'); 
+            badgeText.innerText = 'ОБЪЕКТ НАЙДЕН'; 
+        } else if (state === 'searching') { 
+            badgeDot.classList.add('searching'); 
+            badgeText.innerText = 'СКАНИРОВАНИЕ...'; 
         }
+    }
+</script>
 
-        // Бейдж в AR
-        badge.className = "ar-badge";
-        badgeDot.className = "dot";
-        if (state === "tracking") {
-          badge.classList.add("tracking");
-          badgeDot.classList.add("active");
-          badgeText.innerText = "ОБЪЕКТ НАЙДЕН";
-        } else if (state === "searching") {
-          badgeDot.classList.add("searching");
-          badgeText.innerText = "СКАНИРОВАНИЕ...";
-        }
-      }
-    </script>
-  </body>
+</body>
 </html>
