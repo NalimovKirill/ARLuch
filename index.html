@@ -120,9 +120,12 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
     </style>
 
-    <!-- Библиотеки: используем стабильную версию 1.2.5 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.148.0/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"></script>
+    <!-- 
+      🔧 ЛОКАЛЬНЫЕ БИБЛИОТЕКИ (из папки js/)
+      Убедитесь, что файлы скачаны и лежат в папке js/
+    -->
+    <script src="./js/three.min.js"></script>
+    <script src="./js/mindar-image-three.prod.js"></script>
 </head>
 <body>
 
@@ -206,7 +209,7 @@
     function showScene(id) { document.querySelectorAll('.scene').forEach(s => s.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); }
     function selectModel(name) { selectedModel = name; alert(`Модель "${name}" выбрана.`); showScene('scene-menu'); }
 
-    // 🔍 Диагностика: что доступно в MINDAR
+    // 🔍 Диагностика
     function debugMindAR() {
         const d = document.getElementById('loader-debug');
         let out = `MINDAR exists: ${typeof MINDAR !== 'undefined'}<br>`;
@@ -216,8 +219,8 @@
                 out += `MindARImage: ${typeof MINDAR.IMAGE.MindARImage}<br>`;
                 out += `Available: ${Object.keys(MINDAR.IMAGE).join(', ')}<br>`;
             }
-            out += `MINDAR.FACE: ${!!MINDAR.FACE}<br>`;
         }
+        out += `THREE: ${typeof THREE !== 'undefined'}<br>`;
         out += `THREE.GLTFLoader: ${!!(THREE.GLTFLoader || window.GLTFLoader)}<br>`;
         out += `HTTPS: ${location.protocol === 'https:' ? 'OK' : 'FAIL'}<br>`;
         const c = document.getElementById('ar-container').getBoundingClientRect();
@@ -239,9 +242,15 @@
             loaderError.innerHTML = '⚠ Камера работает только на <b>HTTPS</b>'; return;
         }
 
-        if (typeof THREE === 'undefined' || typeof MINDAR === 'undefined') {
-            loaderText.innerText = 'ОШИБКА БИБЛИОТЕК';
-            loaderError.innerText = '⚠ Three.js или MindAR не загружены';
+        // Проверка библиотек
+        if (typeof THREE === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: THREE.JS';
+            loaderError.innerText = '⚠ Файл js/three.min.js не найден';
+            debugMindAR(); return;
+        }
+        if (typeof MINDAR === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: MINDAR';
+            loaderError.innerText = '⚠ Файл js/mindar-image-three.prod.js не найден';
             debugMindAR(); return;
         }
 
@@ -266,29 +275,22 @@
     async function startCamera() {
         const container = document.getElementById('ar-container');
         
-        // 1. Запрос разрешения на камеру
         const stream = await navigator.mediaDevices.getUserMedia({ 
             video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} } 
         });
         cameraStarted = true;
         stream.getTracks().forEach(t => t.stop());
 
-        // 2. 🔧 Универсальный выбор конструктора
+        // Выбор конструктора
         let MindARClass = null;
         if (MINDAR.IMAGE?.MindARImage) {
             MindARClass = MINDAR.IMAGE.MindARImage;
-            console.log('Using: MINDAR.IMAGE.MindARImage');
         } else if (window.MindARImage) {
             MindARClass = window.MindARImage;
-            console.log('Using: window.MindARImage');
-        } else if (MINDAR.MindARImage) {
-            MindARClass = MINDAR.MindARImage;
-            console.log('Using: MINDAR.MindARImage');
         } else {
-            throw new Error('MindARImage constructor not found. Available: ' + JSON.stringify(Object.keys(MINDAR)));
+            throw new Error('MindARImage constructor not found');
         }
 
-        // 3. Инициализация
         mindarThree = new MindARClass({
             container: container,
             imageUrl: "./targets.mind",
@@ -304,7 +306,6 @@
         document.getElementById('ar-loader').style.display = 'none';
         updateStatus('searching');
 
-        // 4. 🔧 Универсальные обработчики событий
         if (typeof mindarThree.onTargetFound === 'function') {
             mindarThree.onTargetFound = () => onTargetFound();
             mindarThree.onTargetLost = () => onTargetLost();
