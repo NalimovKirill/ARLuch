@@ -13,10 +13,20 @@
             --border: #2d3748; --success: #10b981; --warning: #f59e0b; --error: #ef4444;
         }
         * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
         body {
-            font-family: 'Inter', sans-serif; margin: 0; padding: 0;
-            background-color: #050505; height: 100vh; display: flex;
-            justify-content: center; align-items: center; color: var(--text-main); overflow: hidden;
+            font-family: 'Inter', sans-serif;
+            background-color: #050505;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: var(--text-main);
         }
         body::before {
             content: ""; position: absolute; width: 100%; height: 100%;
@@ -68,10 +78,51 @@
         .model-name { font-size: 14px; font-weight: 500; }
         .model-tech { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-muted); }
         .btn-action { padding: 8px 16px; font-size: 12px; width: auto; margin: 0; justify-content: center; text-align: center; }
-        #scene-ar { padding: 0; overflow: hidden; background: #000; position: relative; }
-        #ar-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; contain: layout style size; }
+        
+        /* AR Scene Styles */
+        #scene-ar { 
+            padding: 0; 
+            overflow: hidden; 
+            background: #000; 
+            position: relative; 
+            width: 100%;
+            height: 100%;
+        }
+        
+        #ar-container { 
+            position: fixed;
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            z-index: 1;
+        }
+        
+        /* Video element - camera feed */
+        #ar-container video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        }
+        
+        /* Three.js canvas */
+        #ar-container canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        
         #ar-loader {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 100;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: #000; z-index: 100;
             display: flex; flex-direction: column; justify-content: center; align-items: center;
             color: var(--text-main); padding: 20px; text-align: center;
         }
@@ -85,11 +136,20 @@
         .loader-debug { color: var(--text-muted); margin-top: 20px; font-size: 9px; text-align: left; padding: 0 20px; font-family: monospace; line-height: 1.5; max-height: 150px; overflow: auto; background: rgba(255,255,255,0.05); border-radius: 4px; }
         .btn-camera { margin-top: 15px; padding: 10px 20px; background: var(--accent); border: none; border-radius: 4px; color: white; font-size: 12px; cursor: pointer; }
         .btn-camera:hover { background: var(--accent-hover); }
+        
+        /* AR UI Layer */
         .ar-ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
-            pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 10;
+            pointer-events: none; 
+            display: flex; flex-direction: column; justify-content: space-between;
         }
-        .ar-top-bar { display: flex; justify-content: space-between; align-items: center; padding: 55px 20px 10px 20px; pointer-events: auto; }
+        .ar-top-bar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 55px 20px 10px 20px; 
+            pointer-events: auto; 
+        }
         .ar-badge {
             background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); border: 1px solid var(--border);
             padding: 6px 12px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;
@@ -101,7 +161,11 @@
             width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center;
             justify-content: center; cursor: pointer; pointer-events: auto; font-size: 18px;
         }
-        .ar-bottom-controls { padding: 15px 20px 20px 20px; pointer-events: auto; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); }
+        .ar-bottom-controls { 
+            padding: 15px 20px 20px 20px; 
+            pointer-events: auto; 
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); 
+        }
         .ar-reticle {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 200px; height: 200px; border: 1px solid rgba(255,255,255,0.15);
