@@ -483,7 +483,7 @@
         const loader = new GLTFLoader();
         loader.load('./Untitled.glb', (gltf) => {
             const model = gltf.scene;
-            model.scale.set(0.5, 0.5, 0.5);
+            model.scale.set(11, 11, 11);
 
             // Кладем модель НА чертеж (для Z-up моделей из CAD)
             model.rotation.x = 0;
