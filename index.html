@@ -273,8 +273,9 @@
 </div>
 
 <script type="module">
-    import * as THREE from 'three';
+        import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { MindARThree } from 'mindar-image-three';
 
     let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
@@ -408,8 +409,27 @@
         });
         log('MindARThree создан');
 
-        const { renderer, scene, camera } = mindarThree;
-        scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
+                const { renderer, scene, camera } = mindarThree;
+
+        // Окружение для PBR-материалов (иначе металл = чёрный)
+        try {
+            const pmrem = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+            log('Environment создан');
+        } catch (e) {
+            log('⚠ Environment не создан: ' + e.message);
+        }
+
+        // Свет с нескольких сторон
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 2.0));
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+        dirLight.position.set(1, 2, 2);
+        scene.add(dirLight);
+
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 1.2);
+        dirLight2.position.set(-1, -1, -1);
+        scene.add(dirLight2);
 
         anchor = mindarThree.addAnchor(0);
         anchor.group.visible = false;
@@ -459,12 +479,26 @@
         renderer.setAnimationLoop(() => renderer.render(scene, camera));
     }
 
-    function addModelToAnchor(anchor) {
+        function addModelToAnchor(anchor) {
         const loader = new GLTFLoader();
         loader.load('./Untitled.glb', (gltf) => {
             const model = gltf.scene;
             model.scale.set(0.5, 0.5, 0.5);
             model.rotation.x = Math.PI / 2;
+
+            // Лечение "чёрной модели"
+            model.traverse((o) => {
+                if (o.isMesh) {
+                    const mats = Array.isArray(o.material) ? o.material : [o.material];
+                    mats.forEach((m) => {
+                        m.side = THREE.DoubleSide;              // кривые нормали
+                        if ('metalness' in m) m.metalness = Math.min(m.metalness, 0.4);
+                        if ('roughness' in m) m.roughness = Math.max(m.roughness, 0.5);
+                        m.needsUpdate = true;
+                    });
+                }
+            });
+
             anchor.group.add(model);
 
             const box = new THREE.Box3().setFromObject(model);
