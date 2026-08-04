@@ -366,36 +366,40 @@
     }
 
     async function startCamera() {
-        const container = document.getElementById('ar-container');
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment', width: {ideal: 1280}, height: {ideal: 720} } 
-        });
-        cameraStarted = true;
-        stream.getTracks().forEach(t => t.stop());
+    const container = document.getElementById('ar-container');
 
-        mindarThree = new MindARThree({
-            container: container,
-            imageUrl: "./targets.mind",
-            filterMinCF: 0.001, 
-            filterBeta: 4, 
-            maxTrack: 1
-        });
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+    });
+    cameraStarted = true;
+    stream.getTracks().forEach(t => t.stop());
 
-        const { renderer, scene, camera } = mindarThree;
-        scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
-        anchor = mindarThree.addAnchor(0);
-        addModelToAnchor(anchor);
+    mindarThree = new MindARThree({
+        container: container,
+        imageTargetSrc: "./targets.mind",   // ← вот здесь была ошибка
+        maxTrack: 1,
+        filterMinCF: 0.001,
+        filterBeta: 4
+    });
 
-        await mindarThree.start();
-        document.getElementById('ar-loader').style.display = 'none';
-        updateStatus('searching');
+    const { renderer, scene, camera } = mindarThree;
 
-        mindarThree.onTargetFound = () => onTargetFound();
-        mindarThree.onTargetLost = () => onTargetLost();
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
 
-        renderer.setAnimationLoop(() => renderer.render(scene, camera));
-    }
+    anchor = mindarThree.addAnchor(0);
+
+    mindarThree.onTargetFound = onTargetFound;
+    mindarThree.onTargetLost = onTargetLost;
+
+    addModelToAnchor(anchor);
+
+    await mindarThree.start();
+
+    document.getElementById('ar-loader').style.display = 'none';
+    updateStatus('searching');
+
+    renderer.setAnimationLoop(() => renderer.render(scene, camera));
+}
 
     function onTargetFound() {
         updateStatus('tracking');
