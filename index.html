@@ -365,39 +365,63 @@
         }
     }
 
-    async function startCamera() {
+    function log(msg) {
+    const el = document.getElementById('loader-debug');
+    if (el) {
+        el.innerHTML += msg + '<br>';
+        el.scrollTop = el.scrollHeight;
+    }
+    console.log('[AR]', msg);
+}
+
+async function startCamera() {
     const container = document.getElementById('ar-container');
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    cameraStarted = true;
-    stream.getTracks().forEach(t => t.stop());
+    // 1) Проверяем, что targets.mind реально доступен
+    log('Проверка targets.mind...');
+    const resp = await fetch('./targets.mind');
+    const buf = await resp.arrayBuffer();
+    log('targets.mind: HTTP ' + resp.status + ', ' + buf.byteLength + ' байт');
 
+    if (!resp.ok) {
+        throw new Error('targets.mind не найден (HTTP ' + resp.status + ')');
+    }
+    if (buf.byteLength < 1000) {
+        log('⚠ Файл слишком маленький: возможно это LFS-pointer или битый файл');
+    }
+
+    // 2) Создаем MindAR
+    log('Создание MindARThree...');
     mindarThree = new MindARThree({
         container: container,
-        imageTargetSrc: "./targets.mind",   // ← вот здесь была ошибка
+        imageTargetSrc: './targets.mind',
         maxTrack: 1,
         filterMinCF: 0.001,
         filterBeta: 4
     });
+    log('MindARThree создан');
 
     const { renderer, scene, camera } = mindarThree;
-
     scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
 
     anchor = mindarThree.addAnchor(0);
+    addModelToAnchor(anchor);
 
     mindarThree.onTargetFound = onTargetFound;
     mindarThree.onTargetLost = onTargetLost;
 
-    addModelToAnchor(anchor);
+    // 3) Старт + «сторож», чтобы видеть зависание
+    log('Вызов mindarThree.start()...');
+    const watchdog = setTimeout(() => {
+        log('⚠ start() не завершился за 20 сек. Смотри Network: какой запрос висит (targets.mind? *.wasm? camera?)');
+    }, 20000);
 
     await mindarThree.start();
+    clearTimeout(watchdog);
+    log('start() завершился OK');
 
     document.getElementById('ar-loader').style.display = 'none';
     updateStatus('searching');
-
     renderer.setAnimationLoop(() => renderer.render(scene, camera));
 }
 
