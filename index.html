@@ -440,14 +440,13 @@ async function startCamera() {
     }
 
     function addModelToAnchor(anchor) {
-        const loader = new GLTFLoader();
-        loader.load('./Untitled.glb', (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(0.5, 0.5, 0.5);
-            model.rotation.x = Math.PI / 2;
-            anchor.group.add(model);
-        }, undefined, (e) => console.error('Model error:', e));
-    }
+    // Временный отладочный куб
+    const debugCube = new THREE.Mesh(
+        new THREE.BoxGeometry(0.2, 0.2, 0.2),
+        new THREE.MeshBasicMaterial({ color: 0xff0000 })
+    );
+    anchor.group.add(debugCube);
+}
 
     function stopAR() {
         if (mindarThree) { 
