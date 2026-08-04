@@ -365,78 +365,7 @@
         }
     }
 
-    function log(msg) {
-    const el = document.getElementById('loader-debug');
-    if (el) {
-        el.innerHTML += msg + '<br>';
-        el.scrollTop = el.scrollHeight;
-    }
-    console.log('[AR]', msg);
-}
-
-async function startCamera() {
-    const container = document.getElementById('ar-container');
-
-    log('Проверка targets.mind...');
-    try {
-        const resp = await fetch('./targets.mind');
-        const buf = await resp.arrayBuffer();
-        log('targets.mind: HTTP ' + resp.status + ', ' + buf.byteLength + ' байт');
-        
-        if (!resp.ok) {
-            throw new Error('targets.mind не найден (HTTP ' + resp.status + ')');
-        }
-        if (buf.byteLength < 1000) {
-            log('⚠ Файл слишком маленький: возможно LFS-pointer');
-        }
-    } catch (e) {
-        log('❌ Ошибка загрузки targets.mind: ' + e.message);
-        throw e;
-    }
-
-    log('Создание MindARThree...');
-    mindarThree = new MindARThree({
-        container: container,
-        imageTargetSrc: './targets.mind',
-        maxTrack: 1,
-        filterMinCF: 0.001,
-        filterBeta: 4
-    });
-    log('MindARThree создан');
-
-    const { renderer, scene, camera } = mindarThree;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
-
-    anchor = mindarThree.addAnchor(0);
-    
-    log('Добавление отладочного куба...');
-    const debugCube = new THREE.Mesh(
-        new THREE.BoxGeometry(0.2, 0.2, 0.2),
-        new THREE.MeshBasicMaterial({ color: 0xff0000 })
-    );
-    anchor.group.add(debugCube);
-    log('Куб добавлен');
-
-    mindarThree.onTargetFound = () => {
-        log('✅ TARGET FOUND!');
-        updateStatus('tracking');
-        if (anchor?.group) anchor.group.visible = true;
-    };
-    
-    mindarThree.onTargetLost = () => {
-        log('❌ TARGET LOST');
-        updateStatus('searching');
-        if (anchor?.group) anchor.group.visible = false;
-    };
-
-    log('Вызов mindarThree.start()...');
-    await mindarThree.start();
-    log('✅ start() завершился');
-
-    document.getElementById('ar-loader').style.display = 'none';
-    updateStatus('searching');
-    renderer.setAnimationLoop(() => renderer.render(scene, camera));
-}
+    startCamera
 
     function onTargetFound() {
         updateStatus('tracking');
