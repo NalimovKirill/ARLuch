@@ -479,22 +479,28 @@
         renderer.setAnimationLoop(() => renderer.render(scene, camera));
     }
 
-        function addModelToAnchor(anchor) {
+           function addModelToAnchor(anchor) {
         const loader = new GLTFLoader();
         loader.load('./Untitled.glb', (gltf) => {
             const model = gltf.scene;
             model.scale.set(0.5, 0.5, 0.5);
             model.rotation.x = Math.PI / 2;
 
-            // Лечение "чёрной модели"
+            // Материалы НЕ трогаем, только смотрим, что внутри
+            let matLogCount = 0;
             model.traverse((o) => {
                 if (o.isMesh) {
                     const mats = Array.isArray(o.material) ? o.material : [o.material];
                     mats.forEach((m) => {
-                        m.side = THREE.DoubleSide;              // кривые нормали
-                        if ('metalness' in m) m.metalness = Math.min(m.metalness, 0.4);
-                        if ('roughness' in m) m.roughness = Math.max(m.roughness, 0.5);
-                        m.needsUpdate = true;
+                        m.side = THREE.DoubleSide;
+                        if (matLogCount < 6) {
+                            log('mat: ' + m.type +
+                                ' | color:#' + (m.color ? m.color.getHexString() : '--') +
+                                ' | metal:' + (m.metalness !== undefined ? m.metalness.toFixed(2) : '--') +
+                                ' | rough:' + (m.roughness !== undefined ? m.roughness.toFixed(2) : '--') +
+                                ' | tex:' + (m.map ? 'YES' : 'no'));
+                            matLogCount++;
+                        }
                     });
                 }
             });
