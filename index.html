@@ -98,7 +98,6 @@
             z-index: 1;
         }
         
-        /* Video element - camera feed */
         #ar-container video {
             position: fixed;
             top: 0;
@@ -109,7 +108,6 @@
             z-index: -2;
         }
         
-        /* Three.js canvas */
         #ar-container canvas {
             position: fixed;
             top: 0;
@@ -196,6 +194,9 @@
     </script>
 </head>
 <body>
+
+<!-- Красный баннер ошибок JS: появится, если скрипты упадут -->
+<div id="js-error" style="display:none;position:fixed;bottom:10px;left:10px;right:10px;z-index:9999;background:#500;color:#fff;font:12px monospace;padding:10px;border-radius:6px;white-space:pre-wrap;"></div>
 
 <div id="app-container">
     <div class="status-bar">
@@ -290,4 +291,308 @@
     const badgeText = document.getElementById('badge-text');
     const loaderText = document.getElementById('loader-text');
     const loaderError = document.getElementById('loader-error');
-    const loaderDebug = document.getElementById('loader-debug
+    const loaderDebug = document.getElementById('loader-debug');
+    const btnManualCamera = document.getElementById('btn-manual-camera');
+    const resetBtn = document.getElementById('reset-btn');
+
+    function showScene(id) { 
+        [sceneMenu, sceneList, sceneAr].forEach(s => s.classList.add('hidden')); 
+        document.getElementById(id).classList.remove('hidden'); 
+    }
+
+    function selectModel(name) { 
+        selectedModel = name; 
+        alert(`Модель "${name}" выбрана.`); 
+        showScene('scene-menu'); 
+    }
+
+    function debugMindAR() {
+        let out = `THREE: ${typeof THREE !== 'undefined'}<br>`;
+        out += `MindARThree: ${typeof MindARThree !== 'undefined'}<br>`;
+        out += `GLTFLoader: ${typeof GLTFLoader !== 'undefined'}<br>`;
+        out += `HTTPS: ${location.protocol === 'https:' ? 'OK' : 'FAIL'}<br>`;
+        const c = document.getElementById('ar-container').getBoundingClientRect();
+        out += `Container: ${Math.round(c.width)}x${Math.round(c.height)}`;
+        loaderDebug.innerHTML = out;
+    }
+
+    function log(msg) {
+        const el = document.getElementById('loader-debug');
+        if (el) {
+            el.innerHTML += msg + '<br>';
+            el.scrollTop = el.scrollHeight;
+        }
+        console.log('[AR]', msg);
+        
+        if (window.updateDebugOverlay) {
+            setTimeout(window.updateDebugOverlay, 10);
+        }
+    }
+
+    async function initAR() {
+        showScene('scene-ar'); 
+        arActive = true; 
+        updateStatus('searching');
+        
+        loaderText.innerText = 'ДИАГНОСТИКА...';
+        loaderError.innerText = ''; 
+        loaderDebug.innerHTML = ''; 
+        btnManualCamera.classList.add('hidden');
+        document.getElementById('ar-container').innerHTML = '';
+
+        if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+            loaderError.innerHTML = '⚠ Камера работает только на <b>HTTPS</b>'; 
+            return;
+        }
+
+        if (typeof THREE === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: THREE.JS';
+            loaderError.innerText = '⚠ Three.js не загрузился';
+            debugMindAR(); 
+            return;
+        }
+        if (typeof MindARThree === 'undefined') {
+            loaderText.innerText = 'ОШИБКА: MINDAR';
+            loaderError.innerText = '⚠ MindAR не загрузился';
+            debugMindAR(); 
+            return;
+        }
+
+        debugMindAR();
+        await new Promise(r => setTimeout(r, 150));
+        const rect = document.getElementById('ar-container').getBoundingClientRect();
+        if (rect.width < 10 || rect.height < 10) {
+            loaderText.innerText = 'ОШИБКА РАЗМЕРОВ';
+            loaderError.innerText = '⚠ Контейнер пуст. Обновите страницу.'; 
+            return;
+        }
+
+        loaderText.innerText = 'ЗАПРОС КАМЕРЫ...';
+        try { 
+            await startCamera(); 
+        } catch (e) {
+            console.error('Camera init error:', e);
+            loaderText.innerText = 'НУЖНО РАЗРЕШЕНИЕ';
+            loaderError.innerText = '⚠ ' + (e.message || 'Камера заблокирована');
+            btnManualCamera.classList.remove('hidden');
+        }
+    }
+
+    async function startCamera() {
+        const container = document.getElementById('ar-container');
+
+        log('Проверка targets.mind...');
+        try {
+            const resp = await fetch('./targets.mind');
+            const buf = await resp.arrayBuffer();
+            log('targets.mind: HTTP ' + resp.status + ', ' + buf.byteLength + ' байт');
+            
+            if (!resp.ok) {
+                throw new Error('targets.mind не найден (HTTP ' + resp.status + ')');
+            }
+            if (buf.byteLength < 1000) {
+                log('⚠ Файл слишком маленький: возможно LFS-pointer');
+            }
+        } catch (e) {
+            log('❌ Ошибка загрузки targets.mind: ' + e.message);
+            throw e;
+        }
+
+        log('Создание MindARThree...');
+        mindarThree = new MindARThree({
+            container: container,
+            imageTargetSrc: './targets.mind',
+            maxTrack: 1,
+            filterMinCF: 0.001,
+            filterBeta: 4
+        });
+        log('MindARThree создан');
+
+        const { renderer, scene, camera } = mindarThree;
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
+
+        anchor = mindarThree.addAnchor(0);
+        anchor.group.visible = false;
+        
+        log('Загрузка модели...');
+        addModelToAnchor(anchor);
+
+        mindarThree.onTargetFound = () => {
+            if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
+            log('✅ TARGET FOUND!');
+            updateStatus('tracking');
+            if (anchor?.group) anchor.group.visible = true;
+        };
+        
+        mindarThree.onTargetLost = () => {
+            log('❌ TARGET LOST');
+            lostTimeout = setTimeout(() => {
+                updateStatus('searching');
+                if (anchor?.group) anchor.group.visible = false;
+            }, 500);
+        };
+
+        log('Вызов mindarThree.start()...');
+        await mindarThree.start();
+        log('✅ start() завершился');
+
+        document.getElementById('ar-loader').style.display = 'none';
+        
+        const oldOverlay = document.getElementById('debug-overlay');
+        if (oldOverlay) oldOverlay.remove();
+        
+        const debugOverlay = document.createElement('div');
+        debugOverlay.id = 'debug-overlay';
+        debugOverlay.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;z-index:999;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;padding:10px;border-radius:4px;max-height:150px;overflow:auto;pointer-events:none;';
+        debugOverlay.innerHTML = loaderDebug.innerHTML;
+        document.body.appendChild(debugOverlay);
+        
+        window.updateDebugOverlay = function() {
+            const overlay = document.getElementById('debug-overlay');
+            if (overlay) {
+                overlay.innerHTML = loaderDebug.innerHTML;
+                overlay.scrollTop = overlay.scrollHeight;
+            }
+        };
+        
+        updateStatus('searching');
+        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+    }
+
+    function addModelToAnchor(anchor) {
+        const loader = new GLTFLoader();
+        loader.load('./Untitled.glb', (gltf) => {
+            const model = gltf.scene;
+            model.scale.set(0.5, 0.5, 0.5);
+            model.rotation.x = Math.PI / 2;
+            anchor.group.add(model);
+
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            log('✅ Модель загружена, размер: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
+        }, undefined, (e) => {
+            log('❌ Ошибка загрузки модели');
+            console.error('Model error:', e);
+        });
+    }
+
+    function stopAR() {
+        if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
+        if (mindarThree) { 
+            mindarThree.stop(); 
+            if (mindarThree.renderer) mindarThree.renderer.setAnimationLoop(null); 
+        }
+        document.getElementById('ar-container').innerHTML = '';
+        
+        const overlay = document.getElementById('debug-overlay');
+        if (overlay) overlay.remove();
+        
+        cameraStarted = false; 
+        arActive = false; 
+        updateStatus('offline'); 
+        showScene('scene-menu');
+    }
+
+    resetBtn.addEventListener('click', () => { 
+        if (anchor?.group) { 
+            anchor.group.visible = false; 
+            setTimeout(() => anchor.group.visible = true, 100); 
+        } 
+    });
+
+    function updateStatus(state) {
+        statusDot.className = 'dot';
+        if (state === 'tracking') { 
+            statusDot.classList.add('active'); 
+            statusText.innerText = 'AR ACTIVE'; 
+            statusText.style.color = 'var(--success)'; 
+        } else if (state === 'searching') { 
+            statusDot.classList.add('searching'); 
+            statusText.innerText = 'SCANNING'; 
+            statusText.style.color = 'var(--warning)'; 
+        } else { 
+            statusText.innerText = 'OFFLINE'; 
+            statusText.style.color = 'var(--text-muted)'; 
+        }
+        
+        arBadge.className = 'ar-badge'; 
+        badgeDot.className = 'dot';
+        if (state === 'tracking') { 
+            arBadge.classList.add('tracking'); 
+            badgeDot.classList.add('active'); 
+            badgeText.innerText = 'ОБЪЕКТ НАЙДЕН'; 
+        } else if (state === 'searching') { 
+            badgeDot.classList.add('searching'); 
+            badgeText.innerText = 'СКАНИРОВАНИЕ...'; 
+        }
+    }
+
+    // Обработчики кнопок
+    document.getElementById('init-ar-btn').addEventListener('click', initAR);
+    document.getElementById('show-list-btn').addEventListener('click', () => showScene('scene-list'));
+    document.getElementById('back-to-menu').addEventListener('click', () => showScene('scene-menu'));
+    document.getElementById('select-model').addEventListener('click', () => selectModel('Untitled'));
+    document.getElementById('stop-ar').addEventListener('click', stopAR);
+    btnManualCamera.addEventListener('click', async () => {
+        btnManualCamera.classList.add('hidden'); 
+        btnManualCamera.disabled = true;
+        loaderText.innerText = 'ЗАПРОС РАЗРЕШЕНИЯ...'; 
+        loaderError.innerText = '';
+        try { 
+            await startCamera(); 
+        } catch (e) {
+            console.error('Manual error:', e);
+            loaderText.innerText = 'ОШИБКА';
+            loaderError.innerText = '⚠ ' + (e.message || 'Не удалось запустить камеру');
+            btnManualCamera.classList.remove('hidden'); 
+            btnManualCamera.disabled = false;
+        }
+    });
+
+    // Флаг, что модуль загрузился и кнопки привязаны
+    window.__arReady = true;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        console.log('Protocol:', location.protocol);
+        console.log('Hostname:', location.hostname);
+        console.log('HTTPS OK:', location.protocol === 'https:' || location.hostname === 'localhost');
+        
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Ваш браузер не поддерживает доступ к камере');
+        }
+    });
+</script>
+
+<!-- Обычный скрипт: ловит ошибки и показывает красный баннер, если модуль не запустился -->
+<script>
+    window.addEventListener('error', function (e) {
+        var el = document.getElementById('js-error');
+        if (el) {
+            el.style.display = 'block';
+            el.innerText = 'Ошибка JS: ' + e.message;
+        }
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+        var el = document.getElementById('js-error');
+        if (el) {
+            el.style.display = 'block';
+            el.innerText = 'Ошибка async: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+        }
+    });
+    setTimeout(function () {
+        if (!window.__arReady) {
+            var el = document.getElementById('js-error');
+            if (el) {
+                el.style.display = 'block';
+                el.innerText = '⚠ Основные скрипты не загрузились за 6 сек. Проверь интернет (нужны unpkg.com и jsdelivr.net) или обнови страницу.';
+            }
+            // Фолбэк: покажем сообщение при нажатии на кнопку
+            var btn = document.getElementById('init-ar-btn');
+            if (btn) btn.addEventListener('click', function () {
+                alert('Скрипты AR не загрузились. Проверь интернет и обнови страницу.');
+            });
+        }
+    }, 6000);
+</script>
+</body>
+</html>
