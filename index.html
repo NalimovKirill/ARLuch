@@ -104,7 +104,8 @@
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover;
+            object-fit: contain;
+            background: #000;
             z-index: -2;
         }
         
@@ -273,7 +274,7 @@
 </div>
 
 <script type="module">
-        import * as THREE from 'three';
+    import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { MindARThree } from 'mindar-image-three';
@@ -405,11 +406,13 @@
             imageTargetSrc: './targets.mind',
             maxTrack: 1,
             filterMinCF: 0.001,
-            filterBeta: 4
+            filterBeta: 4,
+            uiLoading: "no",
+            uiError: "no"
         });
         log('MindARThree создан');
 
-                const { renderer, scene, camera } = mindarThree;
+        const { renderer, scene, camera } = mindarThree;
 
         // Окружение для PBR-материалов (иначе металл = чёрный)
         try {
@@ -456,6 +459,9 @@
         await mindarThree.start();
         log('✅ start() завершился');
 
+        // Улучшаем камеру
+        await improveCamera();
+
         document.getElementById('ar-loader').style.display = 'none';
         
         const oldOverlay = document.getElementById('debug-overlay');
@@ -479,47 +485,96 @@
         renderer.setAnimationLoop(() => renderer.render(scene, camera));
     }
 
-              function addModelToAnchor(anchor) {
-    const loader = new GLTFLoader();
-    loader.load('./Untitled.glb', (gltf) => {
-        const model = gltf.scene;
+    async function improveCamera() {
+        const video = document.querySelector('#ar-container video');
+        if (!video || !video.srcObject) {
+            log('⚠ video stream не найден');
+            return;
+        }
 
-        // Масштаб: 0.001 (мм → м) × 40 (подгонка под лист)
-        // Подбирай второе число: 20, 30, 40, 50
-        const mmToM = 0.001;
-        const fitToSheet = 20;
-        const scale = mmToM * fitToSheet;
-        model.scale.set(scale, scale, scale);
+        const stream = video.srcObject;
+        const track = stream.getVideoTracks()[0];
+        if (!track) {
+            log('⚠ video track не найден');
+            return;
+        }
 
-        // Для Y-up модели из Unity: ставим вертикально, чтобы росла ОТ листа
-        model.rotation.x = Math.PI / 2;
+        const caps = track.getCapabilities ? track.getCapabilities() : {};
+        log('camera caps: ' + JSON.stringify({
+            w: caps.width && caps.width.max,
+            h: caps.height && caps.height.max,
+            focus: caps.focusMode
+        }));
 
-        // Если в Unity модель не стоит "ногами" на Y=0, нужен сдвиг по Z
-        // Начни с 0 и подбирай, если модель уходит под лист
-        model.position.z = 0;
+        const constraints = {
+            width:  { ideal: 1920 },
+            height: { ideal: 1080 },
+            aspectRatio: { ideal: 16/9 },
+        };
+        
+        if (caps.focusMode && caps.focusMode.includes('continuous')) {
+            constraints.focusMode = 'continuous';
+        } else if (caps.focusMode && caps.focusMode.includes('auto')) {
+            constraints.focusMode = 'auto';
+        }
+        
+        if (caps.zoom) {
+            constraints.zoom = 1.0;
+        }
 
-        anchor.group.add(model);
+        try {
+            await track.applyConstraints(constraints);
+            log('✅ camera constraints applied');
+        } catch (e) {
+            log('⚠ applyConstraints: ' + e.message);
+        }
 
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
-        log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
+        if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
+            video.addEventListener('click', async () => {
+                try {
+                    const newCaps = track.getCapabilities();
+                    const c = { focusMode: 'auto' };
+                    if (newCaps.exposureMode) c.exposureMode = 'auto';
+                    await track.applyConstraints(c);
+                } catch (_) {}
+            });
+        }
+    }
 
-        // Логи материалов
-        let matLogCount = 0;
-        model.traverse((o) => {
-            if (o.isMesh && matLogCount < 2) {
-                const m = Array.isArray(o.material) ? o.material[0] : o.material;
-                m.side = THREE.DoubleSide;
-                log('mat#' + matLogCount + ' ' + m.type);
-                matLogCount++;
-            }
+    function addModelToAnchor(anchor) {
+        const loader = new GLTFLoader();
+        loader.load('./Untitled.glb', (gltf) => {
+            const model = gltf.scene;
+
+            const mmToM = 0.001;
+            const fitToSheet = 20;
+            const scale = mmToM * fitToSheet;
+            model.scale.set(scale, scale, scale);
+
+            model.rotation.x = Math.PI / 2;
+            model.position.z = 0;
+
+            anchor.group.add(model);
+
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
+            log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
+
+            let matLogCount = 0;
+            model.traverse((o) => {
+                if (o.isMesh && matLogCount < 2) {
+                    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+                    m.side = THREE.DoubleSide;
+                    log('mat#' + matLogCount + ' ' + m.type);
+                    matLogCount++;
+                }
+            });
+        }, undefined, (e) => {
+            log('❌ Ошибка загрузки модели');
+            console.error('Model error:', e);
         });
-    }, undefined, (e) => {
-        log('❌ Ошибка загрузки модели');
-        console.error('Model error:', e);
-    });
-}
+    }
 
     function stopAR() {
         if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
@@ -594,7 +649,6 @@
         }
     });
 
-    // Флаг, что модуль загрузился и кнопки привязаны
     window.__arReady = true;
 
     window.addEventListener('DOMContentLoaded', () => {
@@ -608,7 +662,6 @@
     });
 </script>
 
-<!-- Обычный скрипт: ловит ошибки и показывает красный баннер, если модуль не запустился -->
 <script>
     window.addEventListener('error', function (e) {
         var el = document.getElementById('js-error');
@@ -631,7 +684,6 @@
                 el.style.display = 'block';
                 el.innerText = '⚠ Основные скрипты не загрузились за 6 сек. Проверь интернет (нужны unpkg.com и jsdelivr.net) или обнови страницу.';
             }
-            // Фолбэк: покажем сообщение при нажатии на кнопку
             var btn = document.getElementById('init-ar-btn');
             if (btn) btn.addEventListener('click', function () {
                 alert('Скрипты AR не загрузились. Проверь интернет и обнови страницу.');
