@@ -398,7 +398,7 @@
             imageTargetSrc: './targets.mind',
             maxTrack: 1,
             filterMinCF: 0.001,
-            filterBeta: 4,
+            filterBeta: 10,
             uiLoading: "no",
             uiError: "no"
         });
@@ -442,14 +442,13 @@
             lostTimeout = setTimeout(() => {
                 updateStatus('searching');
                 if (anchor?.group) anchor.group.visible = false;
-            }, 500);
+            }, 800);
         };
 
         log('Вызов mindarThree.start()...');
         await mindarThree.start();
         log('✅ start() завершился');
 
-        // Улучшаем камеру
         await improveCamera();
 
         document.getElementById('ar-loader').style.display = 'none';
@@ -589,13 +588,21 @@
             const scale = mmToM * fitToSheet;
             model.scale.set(scale, scale, scale);
 
-            model.rotation.x = Math.PI / 2;
-            model.position.z = 0;
+            // Модель лежит в плоскости чертежа (фасадом к камере)
+            model.rotation.x = 0;
 
             anchor.group.add(model);
 
+            // Не уходим "под бумагу"
             const box = new THREE.Box3().setFromObject(model);
+            if (box.min.z < 0) {
+                model.position.z -= box.min.z;
+            }
             const size = box.getSize(new THREE.Vector3());
+
+            // Опускаем на половину толщины "в лист"
+            model.position.z -= size.z / 2;
+
             log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
             log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
 
