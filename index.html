@@ -483,38 +483,35 @@
     const loader = new GLTFLoader();
     loader.load('./Untitled.glb', (gltf) => {
         const model = gltf.scene;
-        model.scale.set(11, 11, 11);
 
-        // Для Y-up модели из Unity: кладем на плоскость
-        model.rotation.x = -Math.PI / 2;
+        // Масштаб: 0.001 (мм → м) × 40 (подгонка под лист)
+        // Подбирай второе число: 20, 30, 40, 50
+        const mmToM = 0.001;
+        const fitToSheet = 40;
+        const scale = mmToM * fitToSheet;
+        model.scale.set(scale, scale, scale);
 
-        // Временный отладочный куб (чтобы видеть anchor)
-        const debugCube = new THREE.Mesh(
-            new THREE.BoxGeometry(0.1, 0.1, 0.1),
-            new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-        );
-        anchor.group.add(debugCube);
+        // Для Y-up модели из Unity: ставим вертикально, чтобы росла ОТ листа
+        model.rotation.x = Math.PI / 2;
+
+        // Если в Unity модель не стоит "ногами" на Y=0, нужен сдвиг по Z
+        // Начни с 0 и подбирай, если модель уходит под лист
+        model.position.z = 0;
 
         anchor.group.add(model);
 
-        // Приподнимаем, чтобы низ модели лежал на плоскости чертежа
         const box = new THREE.Box3().setFromObject(model);
-        if (box.min.z < 0) {
-            model.position.z -= box.min.z;
-        }
-
         const size = box.getSize(new THREE.Vector3());
         log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
-        log('  position.z: ' + model.position.z.toFixed(2));
+        log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
 
-        // Короткие логи материалов
+        // Логи материалов
         let matLogCount = 0;
         model.traverse((o) => {
-            if (o.isMesh && matLogCount < 4) {
+            if (o.isMesh && matLogCount < 2) {
                 const m = Array.isArray(o.material) ? o.material[0] : o.material;
                 m.side = THREE.DoubleSide;
-                log('mat#' + matLogCount + ' ' + m.type + ' #' + (m.color ? m.color.getHexString() : '--'));
-                log('  tex:' + (m.map ? 'YES' : 'no') + ' metal:' + (m.metalness !== undefined ? m.metalness.toFixed(2) : '--') + ' rough:' + (m.roughness !== undefined ? m.roughness.toFixed(2) : '--'));
+                log('mat#' + matLogCount + ' ' + m.type);
                 matLogCount++;
             }
         });
