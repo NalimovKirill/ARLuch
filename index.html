@@ -272,8 +272,13 @@
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { MindARThree } from 'mindar-image-three';
 
-    let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
+        let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
     let lostTimeout = null;
+    let smoothGroup = null, trackingActive = false, needSnap = true;
+    const _pos = new THREE.Vector3();
+    const _quat = new THREE.Quaternion();
+    const _scl = new THREE.Vector3();
+    const _mat = new THREE.Matrix4();
 
     const sceneMenu = document.getElementById('scene-menu');
     const sceneList = document.getElementById('scene-list');
@@ -424,25 +429,33 @@
         dirLight2.position.set(-1, -1, -1);
         scene.add(dirLight2);
 
-        anchor = mindarThree.addAnchor(0);
+                anchor = mindarThree.addAnchor(0);
         anchor.group.visible = false;
+
+        // Модель будет жить в отдельной группе с плавным слежением
+        smoothGroup = new THREE.Group();
+        smoothGroup.visible = false;
+        scene.add(smoothGroup);
         
         log('Загрузка модели...');
         addModelToAnchor(anchor);
 
-        mindarThree.onTargetFound = () => {
+                mindarThree.onTargetFound = () => {
             if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
             log('✅ TARGET FOUND!');
             updateStatus('tracking');
-            if (anchor?.group) anchor.group.visible = true;
+            trackingActive = true;
+            needSnap = true;
+            if (smoothGroup) smoothGroup.visible = true;
         };
         
         mindarThree.onTargetLost = () => {
             log('❌ TARGET LOST');
+            trackingActive = false;
             lostTimeout = setTimeout(() => {
                 updateStatus('searching');
-                if (anchor?.group) anchor.group.visible = false;
-            }, 500);
+                if (smoothGroup) smoothGroup.visible = false;
+            }, 800);
         };
 
         log('Вызов mindarThree.start()...');
@@ -471,8 +484,26 @@
             }
         };
         
-        updateStatus('searching');
-        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+                updateStatus('searching');
+        renderer.setAnimationLoop(() => {
+            if (smoothGroup && trackingActive && smoothGroup.visible) {
+                anchor.group.updateMatrixWorld(true);
+                _mat.copy(anchor.group.matrixWorld);
+                _mat.decompose(_pos, _quat, _scl);
+
+                if (needSnap) {
+                    // Первый кадр после обнаружения — без "долёта"
+                    smoothGroup.position.copy(_pos);
+                    smoothGroup.quaternion.copy(_quat);
+                    needSnap = false;
+                } else {
+                    // Плавное слежение: меньше = плавнее, больше = отзывчивее
+                    smoothGroup.position.lerp(_pos, 0.35);
+                    smoothGroup.quaternion.slerp(_quat, 0.35);
+                }
+            }
+            renderer.render(scene, camera);
+        });
     }
 
     async function improveCamera() {
@@ -592,7 +623,7 @@
                         // Модель лежит в плоскости чертежа (фасадом к камере)
             model.rotation.x = 0;
 
-            anchor.group.add(model);
+                       smoothGroup.add(model);
 
             // Сдвигаем, чтобы модель не уходила "под бумагу"
             const box = new THREE.Box3().setFromObject(model);
@@ -600,6 +631,9 @@
                 model.position.z -= box.min.z;
             }
             const size = box.getSize(new THREE.Vector3());
+
+            // Опускаем модель на половину толщины "в лист"
+            model.position.z -= size.z / 2;
             log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
             log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
 
@@ -635,10 +669,10 @@
         showScene('scene-menu');
     }
 
-    resetBtn.addEventListener('click', () => { 
-        if (anchor?.group) { 
-            anchor.group.visible = false; 
-            setTimeout(() => anchor.group.visible = true, 100); 
+        resetBtn.addEventListener('click', () => { 
+        if (smoothGroup) { 
+            smoothGroup.visible = false; 
+            setTimeout(() => smoothGroup.visible = true, 100); 
         } 
     });
 
