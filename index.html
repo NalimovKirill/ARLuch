@@ -480,41 +480,49 @@
     }
 
               function addModelToAnchor(anchor) {
-        const loader = new GLTFLoader();
-        loader.load('./Untitled.glb', (gltf) => {
-            const model = gltf.scene;
-            model.scale.set(11, 11, 11);
+    const loader = new GLTFLoader();
+    loader.load('./Untitled.glb', (gltf) => {
+        const model = gltf.scene;
+        model.scale.set(11, 11, 11);
 
-            // Кладем модель НА чертеж (для Z-up моделей из CAD)
-            model.rotation.x = 0;
+        // Для Y-up модели из Unity: кладем на плоскость
+        model.rotation.x = -Math.PI / 2;
 
-            anchor.group.add(model);
+        // Временный отладочный куб (чтобы видеть anchor)
+        const debugCube = new THREE.Mesh(
+            new THREE.BoxGeometry(0.1, 0.1, 0.1),
+            new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+        );
+        anchor.group.add(debugCube);
 
-            // Приподнимаем, чтобы низ модели лежал на плоскости чертежа
-            const box = new THREE.Box3().setFromObject(model);
-            if (box.min.z < 0) {
-                model.position.z -= box.min.z;
+        anchor.group.add(model);
+
+        // Приподнимаем, чтобы низ модели лежал на плоскости чертежа
+        const box = new THREE.Box3().setFromObject(model);
+        if (box.min.z < 0) {
+            model.position.z -= box.min.z;
+        }
+
+        const size = box.getSize(new THREE.Vector3());
+        log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
+        log('  position.z: ' + model.position.z.toFixed(2));
+
+        // Короткие логи материалов
+        let matLogCount = 0;
+        model.traverse((o) => {
+            if (o.isMesh && matLogCount < 4) {
+                const m = Array.isArray(o.material) ? o.material[0] : o.material;
+                m.side = THREE.DoubleSide;
+                log('mat#' + matLogCount + ' ' + m.type + ' #' + (m.color ? m.color.getHexString() : '--'));
+                log('  tex:' + (m.map ? 'YES' : 'no') + ' metal:' + (m.metalness !== undefined ? m.metalness.toFixed(2) : '--') + ' rough:' + (m.roughness !== undefined ? m.roughness.toFixed(2) : '--'));
+                matLogCount++;
             }
-
-            const size = box.getSize(new THREE.Vector3());
-            log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
-
-            // Короткие логи материалов, чтобы влезали в окно
-            let matLogCount = 0;
-            model.traverse((o) => {
-                if (o.isMesh && matLogCount < 4) {
-                    const m = Array.isArray(o.material) ? o.material[0] : o.material;
-                    m.side = THREE.DoubleSide;
-                    log('mat#' + matLogCount + ' ' + m.type + ' #' + (m.color ? m.color.getHexString() : '--'));
-                    log('  tex:' + (m.map ? 'YES' : 'no') + ' metal:' + (m.metalness !== undefined ? m.metalness.toFixed(2) : '--') + ' rough:' + (m.roughness !== undefined ? m.roughness.toFixed(2) : '--'));
-                    matLogCount++;
-                }
-            });
-        }, undefined, (e) => {
-            log('❌ Ошибка загрузки модели');
-            console.error('Model error:', e);
         });
-    }
+    }, undefined, (e) => {
+        log('❌ Ошибка загрузки модели');
+        console.error('Model error:', e);
+    });
+}
 
     function stopAR() {
         if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
