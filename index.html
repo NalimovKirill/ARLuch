@@ -585,16 +585,20 @@
             const model = gltf.scene;
 
             const mmToM = 0.001;
-            const fitToSheet = 10;
+            const fitToSheet = 5;
             const scale = mmToM * fitToSheet;
             model.scale.set(scale, scale, scale);
 
-            model.rotation.x = Math.PI / 2;
-            model.position.z = 0;
+                        // Модель лежит в плоскости чертежа (фасадом к камере)
+            model.rotation.x = 0;
 
             anchor.group.add(model);
 
+            // Сдвигаем, чтобы модель не уходила "под бумагу"
             const box = new THREE.Box3().setFromObject(model);
+            if (box.min.z < 0) {
+                model.position.z -= box.min.z;
+            }
             const size = box.getSize(new THREE.Vector3());
             log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
             log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
