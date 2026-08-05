@@ -272,7 +272,7 @@
     import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
     import { MindARThree } from 'mindar-image-three';
 
-        let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
+    let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
     let lostTimeout = null;
     let smoothGroup = null, trackingActive = false, needSnap = true;
     const _pos = new THREE.Vector3();
@@ -429,18 +429,20 @@
         dirLight2.position.set(-1, -1, -1);
         scene.add(dirLight2);
 
-                anchor = mindarThree.addAnchor(0);
+        anchor = mindarThree.addAnchor(0);
         anchor.group.visible = false;
 
-        // Модель будет жить в отдельной группе с плавным слежением
+        // Модель живёт в отдельной группе с плавным слежением
         smoothGroup = new THREE.Group();
         smoothGroup.visible = false;
         scene.add(smoothGroup);
+        trackingActive = false;
+        needSnap = true;
         
         log('Загрузка модели...');
         addModelToAnchor(anchor);
 
-                mindarThree.onTargetFound = () => {
+        mindarThree.onTargetFound = () => {
             if (lostTimeout) { clearTimeout(lostTimeout); lostTimeout = null; }
             log('✅ TARGET FOUND!');
             updateStatus('tracking');
@@ -462,7 +464,6 @@
         await mindarThree.start();
         log('✅ start() завершился');
 
-        // Улучшаем камеру
         await improveCamera();
 
         document.getElementById('ar-loader').style.display = 'none';
@@ -484,7 +485,7 @@
             }
         };
         
-                updateStatus('searching');
+        updateStatus('searching');
         renderer.setAnimationLoop(() => {
             if (smoothGroup && trackingActive && smoothGroup.visible) {
                 anchor.group.updateMatrixWorld(true);
@@ -492,12 +493,10 @@
                 _mat.decompose(_pos, _quat, _scl);
 
                 if (needSnap) {
-                    // Первый кадр после обнаружения — без "долёта"
                     smoothGroup.position.copy(_pos);
                     smoothGroup.quaternion.copy(_quat);
                     needSnap = false;
                 } else {
-                    // Плавное слежение: меньше = плавнее, больше = отзывчивее
                     smoothGroup.position.lerp(_pos, 0.35);
                     smoothGroup.quaternion.slerp(_quat, 0.35);
                 }
@@ -510,44 +509,23 @@
         log('📷 improveCamera: начало');
         
         let video = document.querySelector('#ar-container video');
-        log('video element: ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
-        
         if (!video) {
             video = document.querySelector('video');
-            log('video (global): ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
         }
         
-        if (!video) {
-            log('❌ video элемент не найден вообще');
+        if (!video || !video.srcObject) {
+            log('⚠ video stream не найден');
             return;
-        }
-        
-        log('video.srcObject: ' + (video.srcObject ? 'есть' : 'НЕТ'));
-        log('video.readyState: ' + video.readyState);
-        
-        if (!video.srcObject) {
-            log('⚠ srcObject пустой, ждём 500мс...');
-            await new Promise(r => setTimeout(r, 500));
-            log('video.srcObject после ожидания: ' + (video.srcObject ? 'есть' : 'НЕТ'));
         }
         
         const stream = video.srcObject;
-        if (!stream) {
-            log('❌ stream не доступен');
-            return;
-        }
-        
         const tracks = stream.getVideoTracks();
-        log('video tracks: ' + tracks.length);
-        
         if (tracks.length === 0) {
             log('❌ нет video tracks');
             return;
         }
         
         const track = tracks[0];
-        log('track.id: ' + track.id);
-        log('track.readyState: ' + track.readyState);
         log('track.getSettings: ' + JSON.stringify(track.getSettings()));
         
         let caps = {};
@@ -556,8 +534,7 @@
             log('camera caps: ' + JSON.stringify({
                 w: caps.width && caps.width.max,
                 h: caps.height && caps.height.max,
-                focus: caps.focusMode,
-                zoom: caps.zoom ? caps.zoom.max : 'no'
+                focus: caps.focusMode
             }));
         } catch (e) {
             log('❌ getCapabilities error: ' + e.message);
@@ -570,41 +547,17 @@
         
         if (caps.focusMode && caps.focusMode.includes('continuous')) {
             constraints.focusMode = 'continuous';
-            log('📍 focusMode: continuous');
         } else if (caps.focusMode && caps.focusMode.includes('auto')) {
             constraints.focusMode = 'auto';
-            log('📍 focusMode: auto');
-        } else {
-            log('⚠ focusMode не поддерживается: ' + JSON.stringify(caps.focusMode));
         }
-        
-        log('applying constraints: ' + JSON.stringify(constraints));
         
         try {
             await track.applyConstraints(constraints);
             log('✅ constraints applied');
-            
-            const newSettings = track.getSettings();
-            log('new settings: ' + JSON.stringify({
-                w: newSettings.width,
-                h: newSettings.height,
-                focus: newSettings.focusMode
-            }));
+            const s = track.getSettings();
+            log('new settings: ' + JSON.stringify({ w: s.width, h: s.height, focus: s.focusMode }));
         } catch (e) {
             log('❌ applyConstraints error: ' + e.message);
-        }
-        
-        if (caps.focusMode && (caps.focusMode.includes('manual') || caps.focusMode.includes('auto'))) {
-            video.addEventListener('click', async () => {
-                log('📍 tap for focus');
-                try {
-                    await track.applyConstraints({ focusMode: 'auto' });
-                    log('✅ focus applied');
-                } catch (e) {
-                    log('❌ focus error: ' + e.message);
-                }
-            });
-            log('✅ tap listener added');
         }
         
         log('📷 improveCamera: конец');
@@ -616,14 +569,16 @@
             const model = gltf.scene;
 
             const mmToM = 0.001;
-            const fitToSheet = 5;
+            const fitToSheet = 20;
             const scale = mmToM * fitToSheet;
             model.scale.set(scale, scale, scale);
 
-                        // Модель лежит в плоскости чертежа (фасадом к камере)
+            // Модель лежит в плоскости чертежа (фасадом к камере)
             model.rotation.x = 0;
 
-                       smoothGroup.add(model);
+            if (smoothGroup) {
+                smoothGroup.add(model);
+            }
 
             // Сдвигаем, чтобы модель не уходила "под бумагу"
             const box = new THREE.Box3().setFromObject(model);
@@ -634,6 +589,7 @@
 
             // Опускаем модель на половину толщины "в лист"
             model.position.z -= size.z / 2;
+
             log('✅ Модель: ' + size.x.toFixed(2) + ' x ' + size.y.toFixed(2) + ' x ' + size.z.toFixed(2));
             log('  scale=' + scale.toFixed(4) + ', pos.z=' + model.position.z.toFixed(2));
 
@@ -665,11 +621,12 @@
         
         cameraStarted = false; 
         arActive = false; 
+        trackingActive = false;
         updateStatus('offline'); 
         showScene('scene-menu');
     }
 
-        resetBtn.addEventListener('click', () => { 
+    resetBtn.addEventListener('click', () => { 
         if (smoothGroup) { 
             smoothGroup.visible = false; 
             setTimeout(() => smoothGroup.visible = true, 100); 
