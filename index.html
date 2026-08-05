@@ -274,6 +274,9 @@
 
     let mindarThree = null, anchor = null, arActive = false, selectedModel = 'Untitled', cameraStarted = false;
     let lostTimeout = null;
+    let modelRef = null;
+    let lastRotation = new THREE.Euler();
+    let fixedScale = new THREE.Vector3();
 
     const sceneMenu = document.getElementById('scene-menu');
     const sceneList = document.getElementById('scene-list');
@@ -398,7 +401,7 @@
             imageTargetSrc: './targets.mind',
             maxTrack: 1,
             filterMinCF: 0.001,
-            filterBeta: 10,
+            filterBeta: 25,
             uiLoading: "no",
             uiError: "no"
         });
@@ -471,7 +474,22 @@
         };
         
         updateStatus('searching');
-        renderer.setAnimationLoop(() => renderer.render(scene, camera));
+        renderer.setAnimationLoop(() => {
+            // Сглаживание rotation и фиксация scale модели
+            if (modelRef && anchor?.group?.visible) {
+                // Фиксируем scale (защита от деформации)
+                modelRef.scale.copy(fixedScale);
+                
+                // Мягкое сглаживание rotation
+                const t = modelRef.rotation;
+                t.x = THREE.MathUtils.lerp(lastRotation.x, t.x, 0.15);
+                t.y = THREE.MathUtils.lerp(lastRotation.y, t.y, 0.15);
+                t.z = THREE.MathUtils.lerp(lastRotation.z, t.z, 0.15);
+                lastRotation.copy(t);
+            }
+            
+            renderer.render(scene, camera);
+        });
     }
 
     async function improveCamera() {
@@ -584,7 +602,7 @@
             const model = gltf.scene;
 
             const mmToM = 0.001;
-            const fitToSheet = 6;
+            const fitToSheet = 5;
             const scale = mmToM * fitToSheet;
             model.scale.set(scale, scale, scale);
 
@@ -592,6 +610,11 @@
             model.rotation.x = 0;
 
             anchor.group.add(model);
+
+            // Сохраняем ссылки для сглаживания
+            modelRef = model;
+            fixedScale.copy(model.scale);
+            lastRotation.copy(model.rotation);
 
             // Не уходим "под бумагу"
             const box = new THREE.Box3().setFromObject(model);
@@ -634,6 +657,7 @@
         
         cameraStarted = false; 
         arActive = false; 
+        modelRef = null;
         updateStatus('offline'); 
         showScene('scene-menu');
     }
