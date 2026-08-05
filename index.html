@@ -486,60 +486,222 @@
     }
 
     async function improveCamera() {
-        const video = document.querySelector('#ar-container video');
-        if (!video || !video.srcObject) {
-            log('⚠ video stream не найден');
-            return;
-        }
-
-        const stream = video.srcObject;
-        const track = stream.getVideoTracks()[0];
-        if (!track) {
-            log('⚠ video track не найден');
-            return;
-        }
-
-        const caps = track.getCapabilities ? track.getCapabilities() : {};
+    log('📷 improveCamera: начало');
+    
+    // Ищем video элемент разными способами
+    let video = document.querySelector('#ar-container video');
+    log('video element: ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
+    
+    if (!video) {
+        // Пробуем найти любой video на странице
+        video = document.querySelector('video');
+        log('video (global): ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
+    }
+    
+    if (!video) {
+        log('❌ video элемент не найден вообще');
+        return;
+    }
+    
+    log('video.srcObject: ' + (video.srcObject ? 'есть' : 'НЕТ'));
+    log('video.readyState: ' + video.readyState);
+    
+    if (!video.srcObject) {
+        log('⚠ srcObject пустой, ждём 500мс...');
+        await new Promise(r => setTimeout(r, 500));
+        log('video.srcObject после ожидания: ' + (video.srcObject ? 'есть' : 'НЕТ'));
+    }
+    
+    const stream = video.srcObject;
+    if (!stream) {
+        log('❌ stream не доступен');
+        return;
+    }
+    
+    const tracks = stream.getVideoTracks();
+    log('video tracks: ' + tracks.length);
+    
+    if (tracks.length === 0) {
+        log('❌ нет video tracks');
+        return;
+    }
+    
+    const track = tracks[0];
+    log('track.id: ' + track.id);
+    log('track.readyState: ' + track.readyState);
+    log('track.getSettings: ' + JSON.stringify(track.getSettings()));
+    
+    // Проверяем capabilities
+    let caps = {};
+    try {
+        caps = track.getCapabilities ? track.getCapabilities() : {};
         log('camera caps: ' + JSON.stringify({
             w: caps.width && caps.width.max,
             h: caps.height && caps.height.max,
-            focus: caps.focusMode
+            focus: caps.focusMode,
+            zoom: caps.zoom ? caps.zoom.max : 'no'
         }));
-
-        const constraints = {
-            width:  { ideal: 1920 },
-            height: { ideal: 1080 },
-            aspectRatio: { ideal: 16/9 },
-        };
-        
-        if (caps.focusMode && caps.focusMode.includes('continuous')) {
-            constraints.focusMode = 'continuous';
-        } else if (caps.focusMode && caps.focusMode.includes('auto')) {
-            constraints.focusMode = 'auto';
-        }
-        
-        if (caps.zoom) {
-            constraints.zoom = 1.0;
-        }
-
-        try {
-            await track.applyConstraints(constraints);
-            log('✅ camera constraints applied');
-        } catch (e) {
-            log('⚠ applyConstraints: ' + e.message);
-        }
-
-        if (caps.focusMode && caps.focusMode.includes('manual') && caps.focusDistance) {
-            video.addEventListener('click', async () => {
-                try {
-                    const newCaps = track.getCapabilities();
-                    const c = { focusMode: 'auto' };
-                    if (newCaps.exposureMode) c.exposureMode = 'auto';
-                    await track.applyConstraints(c);
-                } catch (_) {}
-            });
-        }
+    } catch (e) {
+        log('❌ getCapabilities error: ' + e.message);
     }
+    
+    // Пробуем применить constraints
+    const constraints = {
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+    };
+    
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        constraints.focusMode = 'continuous';
+        log('📍 focusMode: continuous');
+    } else if (caps.focusMode && caps.focusMode.includes('auto')) {
+        constraints.focusMode = 'auto';
+        log('📍 focusMode: auto');
+    } else {
+        log('⚠ focusMode не поддерживается: ' + JSON.stringify(caps.focusMode));
+    }
+    
+    log('applying constraints: ' + JSON.stringify(constraints));
+    
+    try {
+        await track.applyConstraints(constraints);
+        log('✅ constraints applied');
+        
+        // Проверяем новые настройки
+        const newSettings = track.getSettings();
+        log('new settings: ' + JSON.stringify({
+            w: newSettings.width,
+            h: newSettings.height,
+            focus: newSettings.focusMode
+        }));
+    } catch (e) {
+        log('❌ applyConstraints error: ' + e.message);
+    }
+    
+    // Тап для фокуса (если поддерживается)
+    if (caps.focusMode && (caps.focusMode.includes('manual') || caps.focusMode.includes('auto'))) {
+        video.addEventListener('click', async () => {
+            log('📍 tap for focus');
+            try {
+                await track.applyConstraints({ focusMode: 'auto' });
+                log('✅ focus applied');
+            } catch (e) {
+                log('❌ focus error: ' + e.message);
+            }
+        });
+        log('✅ tap listener added');
+    }
+    
+    log('📷 improveCamera: конец');
+}async function improveCamera() {
+    log('📷 improveCamera: начало');
+    
+    // Ищем video элемент разными способами
+    let video = document.querySelector('#ar-container video');
+    log('video element: ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
+    
+    if (!video) {
+        // Пробуем найти любой video на странице
+        video = document.querySelector('video');
+        log('video (global): ' + (video ? 'найден' : 'НЕ НАЙДЕН'));
+    }
+    
+    if (!video) {
+        log('❌ video элемент не найден вообще');
+        return;
+    }
+    
+    log('video.srcObject: ' + (video.srcObject ? 'есть' : 'НЕТ'));
+    log('video.readyState: ' + video.readyState);
+    
+    if (!video.srcObject) {
+        log('⚠ srcObject пустой, ждём 500мс...');
+        await new Promise(r => setTimeout(r, 500));
+        log('video.srcObject после ожидания: ' + (video.srcObject ? 'есть' : 'НЕТ'));
+    }
+    
+    const stream = video.srcObject;
+    if (!stream) {
+        log('❌ stream не доступен');
+        return;
+    }
+    
+    const tracks = stream.getVideoTracks();
+    log('video tracks: ' + tracks.length);
+    
+    if (tracks.length === 0) {
+        log('❌ нет video tracks');
+        return;
+    }
+    
+    const track = tracks[0];
+    log('track.id: ' + track.id);
+    log('track.readyState: ' + track.readyState);
+    log('track.getSettings: ' + JSON.stringify(track.getSettings()));
+    
+    // Проверяем capabilities
+    let caps = {};
+    try {
+        caps = track.getCapabilities ? track.getCapabilities() : {};
+        log('camera caps: ' + JSON.stringify({
+            w: caps.width && caps.width.max,
+            h: caps.height && caps.height.max,
+            focus: caps.focusMode,
+            zoom: caps.zoom ? caps.zoom.max : 'no'
+        }));
+    } catch (e) {
+        log('❌ getCapabilities error: ' + e.message);
+    }
+    
+    // Пробуем применить constraints
+    const constraints = {
+        width:  { ideal: 1920 },
+        height: { ideal: 1080 },
+    };
+    
+    if (caps.focusMode && caps.focusMode.includes('continuous')) {
+        constraints.focusMode = 'continuous';
+        log('📍 focusMode: continuous');
+    } else if (caps.focusMode && caps.focusMode.includes('auto')) {
+        constraints.focusMode = 'auto';
+        log('📍 focusMode: auto');
+    } else {
+        log('⚠ focusMode не поддерживается: ' + JSON.stringify(caps.focusMode));
+    }
+    
+    log('applying constraints: ' + JSON.stringify(constraints));
+    
+    try {
+        await track.applyConstraints(constraints);
+        log('✅ constraints applied');
+        
+        // Проверяем новые настройки
+        const newSettings = track.getSettings();
+        log('new settings: ' + JSON.stringify({
+            w: newSettings.width,
+            h: newSettings.height,
+            focus: newSettings.focusMode
+        }));
+    } catch (e) {
+        log('❌ applyConstraints error: ' + e.message);
+    }
+    
+    // Тап для фокуса (если поддерживается)
+    if (caps.focusMode && (caps.focusMode.includes('manual') || caps.focusMode.includes('auto'))) {
+        video.addEventListener('click', async () => {
+            log('📍 tap for focus');
+            try {
+                await track.applyConstraints({ focusMode: 'auto' });
+                log('✅ focus applied');
+            } catch (e) {
+                log('❌ focus error: ' + e.message);
+            }
+        });
+        log('✅ tap listener added');
+    }
+    
+    log('📷 improveCamera: конец');
+}
 
     function addModelToAnchor(anchor) {
         const loader = new GLTFLoader();
