@@ -473,7 +473,7 @@
         
         const debugOverlay = document.createElement('div');
         debugOverlay.id = 'debug-overlay';
-        debugOverlay.style.cssText = 'position:fixed;top:60px;left:10px;right:10px;z-index:999;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;padding:10px;border-radius:4px;max-height:150px;overflow:auto;pointer-events:none;';
+                debugOverlay.style.cssText = 'position:fixed;top:110px;left:10px;right:10px;z-index:999;background:rgba(0,0,0,0.8);color:#0f0;font-family:monospace;font-size:10px;padding:10px;border-radius:4px;max-height:150px;overflow:auto;pointer-events:auto;touch-action:pan-y;';
         debugOverlay.innerHTML = loaderDebug.innerHTML;
         document.body.appendChild(debugOverlay);
         
@@ -485,25 +485,42 @@
             }
         };
         
-        updateStatus('searching');
+                updateStatus('searching');
+        let smoothLogged = false;
         renderer.setAnimationLoop(() => {
             if (smoothGroup && trackingActive && smoothGroup.visible) {
-                anchor.group.updateMatrixWorld(true);
                 _mat.copy(anchor.group.matrixWorld);
-                _mat.decompose(_pos, _quat, _scl);
+                const det = _mat.determinant();
 
-                if (needSnap) {
-                    smoothGroup.position.copy(_pos);
-                    smoothGroup.quaternion.copy(_quat);
-                    needSnap = false;
-                } else {
-                    smoothGroup.position.lerp(_pos, 0.35);
-                    smoothGroup.quaternion.slerp(_quat, 0.35);
+                // Защита от пустой/нулевой матрицы в первые кадры (иначе NaN)
+                if (isFinite(det) && Math.abs(det) > 1e-9) {
+                    _mat.decompose(_pos, _quat, _scl);
+
+                    const ok =
+                        isFinite(_pos.x + _pos.y + _pos.z) &&
+                        isFinite(_quat.x + _quat.y + _quat.z + _quat.w) &&
+                        _scl.x > 1e-7;
+
+                    if (ok) {
+                        if (needSnap || smoothGroup.position.distanceTo(_pos) > 0.5) {
+                            // Первый кадр или резкий скачок — телепорт без "долёта"
+                            smoothGroup.position.copy(_pos);
+                            smoothGroup.quaternion.copy(_quat);
+                            needSnap = false;
+
+                            if (!smoothLogged) {
+                                smoothLogged = true;
+                                log('smooth pos: ' + _pos.x.toFixed(2) + ',' + _pos.y.toFixed(2) + ',' + _pos.z.toFixed(2));
+                            }
+                        } else {
+                            smoothGroup.position.lerp(_pos, 0.35);
+                            smoothGroup.quaternion.slerp(_quat, 0.35);
+                        }
+                    }
                 }
             }
             renderer.render(scene, camera);
         });
-    }
 
     async function improveCamera() {
         log('📷 improveCamera: начало');
